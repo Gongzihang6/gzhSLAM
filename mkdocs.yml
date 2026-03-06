@@ -59,13 +59,20 @@ nav:
                 - 视觉SLAM十四讲/ch2初始slam/初识SLAM.md
           - 第4讲-李群与李代数:
                 - 视觉SLAM十四讲/ch4李群与李代数/李群与李代数.md
+                - 视觉SLAM十四讲/ch4李群与李代数/左扰动和右扰动的区别.md
+          - 第6讲-非线性优化:
+                - 视觉SLAM十四讲/ch6非线性优化/非线性最小二乘.md
+                - 视觉SLAM十四讲/ch6非线性优化/高斯牛顿法.md
+                - 视觉SLAM十四讲/ch6非线性优化/LM方法.md
           - 第7讲-视觉里程计1: 
                 - 视觉SLAM十四讲/ch7视觉里程计1/视觉里程计1.md
                 - 视觉SLAM十四讲/ch7视觉里程计1/ICP.md
                 - 视觉SLAM十四讲/ch7视觉里程计1/点云关键点与特征描述子.md
-      #     - 第8讲-视觉里程计2:
+          - 第8讲-视觉里程计2:
+                - 视觉SLAM十四讲/ch8视觉里程计2/直接法.md
           - 第9讲-后端1:
                 - 视觉SLAM十四讲/ch9后端1/概述.md
+                - 视觉SLAM十四讲/ch9后端1/BA与图优化.md
           - 第10讲-后端2:
                 - 视觉SLAM十四讲/ch10后端2/位姿图.md
           - 第13讲-实践SLAM系统:
@@ -80,19 +87,29 @@ nav:
     - 自动驾驶与机器人中的SLAM技术:
           - 第二章-基础数学知识回顾: 
                 - 自动驾驶与机器人中的SLAM技术/ch2基础数学知识回顾/卡尔曼滤波器的各种推导.md
+          - 第三章-惯性导航与组合导航:
+                - 自动驾驶与机器人中的SLAM技术/ch3惯性导航与组合导航/IMU运动学.md
+                - 自动驾驶与机器人中的SLAM技术/ch3惯性导航与组合导航/IMU的静止初始化.md
+                - 自动驾驶与机器人中的SLAM技术/ch3惯性导航与组合导航/误差状态卡尔曼滤波器ESKF.md
+          - 第五章-基础点云处理:
+                - 自动驾驶与机器人中的SLAM技术/ch5基础点云处理/最近邻问题.md
+          - 第七章-3DSLAM:
+                - 自动驾驶与机器人中的SLAM技术/ch7-3DSLAM/松耦合LIO系统.md
+          - 第八章-紧耦合LIO系统:
+                - 自动驾驶与机器人中的SLAM技术/ch8紧耦合LIO系统/基于IEKF的LIO系统.md
     - 其他:
           - 矩阵分解: 其他/矩阵分解.md
           - 矩阵相似变换的意义: 其他/矩阵相似变换的意义.md
 
 
 # 右上角展示GitHub仓库
-repo_url: https://github.com/Gongzihang6/slambook2
-repo_name: Gongzihang6/slambook2
+repo_url: https://github.com/Gongzihang6/gzhSLAM
+repo_name: Gongzihang6/gzhSLAM
 edit_uri: edit/master/docs/ # 允许读者点击编辑按钮跳转到源码
 
 # 插件配置
 plugins:
-    - caption     # 显示图片题注
+#     - caption     # 显示图片题注
     - callouts    # 让mkdocs识别>[!note]语法
     - search
     - git-revision-date-localized:
