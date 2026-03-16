@@ -167,9 +167,6 @@ bool Icp3d::AlignP2P(SE3& init_pose) {
             return false;
         }
 
-        Mat6d H = H_and_err.first;
-        Vec6d err = H_and_err.second;
-
         Vec6d dx = H.inverse() * err;
         pose.so3() = pose.so3() * SO3::exp(dx.head<3>());       // 李代数的指数映射
         pose.translation() += dx.tail<3>();
