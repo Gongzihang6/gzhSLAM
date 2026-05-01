@@ -87,6 +87,7 @@ nav:
     - 自动驾驶与机器人中的SLAM技术:
           - 第二章-基础数学知识回顾:
                 - 自动驾驶与机器人中的SLAM技术/ch2基础数学知识回顾/卡尔曼滤波器的各种推导.md
+                - 自动驾驶与机器人中的SLAM技术/ch2基础数学知识回顾/旋转的表示.md
           - 第三章-惯性导航与组合导航:
                 - 自动驾驶与机器人中的SLAM技术/ch3惯性导航与组合导航/IMU运动学.md
                 - 自动驾驶与机器人中的SLAM技术/ch3惯性导航与组合导航/IMU的静止初始化.md
@@ -97,10 +98,27 @@ nav:
                 - 自动驾驶与机器人中的SLAM技术/ch7-3DSLAM/松耦合LIO系统.md
           - 第八章-紧耦合LIO系统:
                 - 自动驾驶与机器人中的SLAM技术/ch8紧耦合LIO系统/基于IEKF的LIO系统.md
+                - 自动驾驶与机器人中的SLAM技术/ch8紧耦合LIO系统/紧耦合的原理与优点.md
+                - 自动驾驶与机器人中的SLAM技术/ch8紧耦合LIO系统/紧耦合IESKF与优化理论.md
+          - 课后习题:
+                - ch07-3DSLAM: 自动驾驶与机器人中的SLAM技术/课后习题/ch073DSLAM.md
     - 其他:
           - 矩阵分解: 其他/矩阵分解.md
           - 矩阵相似变换的意义: 其他/矩阵相似变换的意义.md
-
+    - paper:
+          - 3DGS:
+                - paper/3DGS/3DGS.md
+                - paper/3DGS/4D-Gaussian-Splatting-SLAM.md  
+          - DLWM:
+                - paper/DLWM/GaussianFormer.md
+          - FAST-LIO2:
+                - paper/FAST-LIO2/代码.md
+                - paper/FAST-LIO2/论文精读.md
+          - FAST-LIVO2:
+                - paper/FAST-LIVO2/文献精读.md
+    - SLAM面经:
+          - SLAM面经/SLAM面经1.md
+          - SLAM面经/视觉SLAM.md
 # 右上角展示GitHub仓库
 repo_url: https://github.com/Gongzihang6/gzhSLAM
 repo_name: Gongzihang6/gzhSLAM
