@@ -102,23 +102,43 @@ nav:
                 - 自动驾驶与机器人中的SLAM技术/ch8紧耦合LIO系统/紧耦合IESKF与优化理论.md
           - 课后习题:
                 - ch07-3DSLAM: 自动驾驶与机器人中的SLAM技术/课后习题/ch073DSLAM.md
-    - 其他:
-          - 矩阵分解: 其他/矩阵分解.md
-          - 矩阵相似变换的意义: 其他/矩阵相似变换的意义.md
     - paper:
           - 3DGS:
                 - paper/3DGS/3DGS.md
                 - paper/3DGS/4D-Gaussian-Splatting-SLAM.md  
           - DLWM:
+                - code:
+                      - paper/DLWM/code/dlwn_loss.md
+                      - paper/DLWM/code/lt_dataset.md
+                      - paper/DLWM/code/render_head.md
+                      - paper/DLWM/code/semantic_depth_rasterizer.md
                 - paper/DLWM/GaussianFormer.md
+                - paper/DLWM/DLWM.md
+                - paper/DLWM/GaussianWorld.md
           - FAST-LIO2:
                 - paper/FAST-LIO2/代码.md
                 - paper/FAST-LIO2/论文精读.md
           - FAST-LIVO2:
                 - paper/FAST-LIVO2/文献精读.md
+                - paper/FAST-LIVO2/改进试验.md
+          - BEVFusion:
+                - paper/BEVFusion/BEVFusion.md
+                - paper/BEVFusion/map_pretrain_flowchart.md
+                - paper/BEVFusion/map_pretrain_pipline.md
+          - point_yolo:
+                - paper/point_yolo/point_yolo.md
+          - VGGT:
+                - paper/VGGT/VGGT.md
     - SLAM面经:
           - SLAM面经/SLAM面经1.md
           - SLAM面经/视觉SLAM.md
+    - 其他:
+          - 其他/矩阵分解.md
+          - 其他/矩阵相似变换的意义.md
+          - 其他/四元数球面线性插值slerp.md
+          - 其他/四元数转旋转矩阵推导.md
+          - 其他/Cholesky分解.md
+          - 其他/cvparallel_for_并行.md
 # 右上角展示GitHub仓库
 repo_url: https://github.com/Gongzihang6/gzhSLAM
 repo_name: Gongzihang6/gzhSLAM
@@ -161,4 +181,4 @@ extra:
 # 注册自定义 CSS 文件
 extra_css:
     - stylesheets/extra.css
-copyright: Copyright &copy; 2025 Gongzihang6
+copyright: Copyright &copy; 2026 Gongzihang6
