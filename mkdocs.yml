@@ -108,7 +108,7 @@ nav:
                 - paper/3DGS/4D-Gaussian-Splatting-SLAM.md  
           - DLWM:
                 - code:
-                      - paper/DLWM/code/dlwn_loss.md
+                      - paper/DLWM/code/dlwm_loss.md
                       - paper/DLWM/code/lt_dataset.md
                       - paper/DLWM/code/render_head.md
                       - paper/DLWM/code/semantic_depth_rasterizer.md
@@ -129,6 +129,7 @@ nav:
                 - paper/point_yolo/point_yolo.md
           - VGGT:
                 - paper/VGGT/VGGT.md
+                - paper/VGGT/VGGT_omega.md
     - SLAM面经:
           - SLAM面经/SLAM面经1.md
           - SLAM面经/视觉SLAM.md
@@ -139,6 +140,7 @@ nav:
           - 其他/四元数转旋转矩阵推导.md
           - 其他/Cholesky分解.md
           - 其他/cvparallel_for_并行.md
+          - 其他/Lidar_cam_calibration.md
 # 右上角展示GitHub仓库
 repo_url: https://github.com/Gongzihang6/gzhSLAM
 repo_name: Gongzihang6/gzhSLAM
