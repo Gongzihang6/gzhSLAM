@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VINS-Mono 紧耦合非线性优化原理详解</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root{
+  --bg:#0e1216; --panel:#181f27; --panel2:#202934; --txt:#d8dee6;
+  --muted:#8a96a5; --accent:#5aa9ff; --accent2:#ffb454; --green:#7fd86f;
+  --pink:#ff7eb6; --line:#2a3540; --code:#0d1117;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--txt);
+  font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.78; font-size:16px;
+}
+header{
+  padding:64px 24px 44px; text-align:center;
+  background:radial-gradient(120% 100% at 50% 0%,#1b2935 0%,#0e1216 70%);
+  border-bottom:1px solid var(--line);
+}
+header h1{margin:0 0 14px; font-size:2.15em; color:#fff; letter-spacing:.5px}
+header p{margin:6px 0 0; color:var(--muted); font-size:1.05em}
+.badge{display:inline-block;margin-top:18px;padding:5px 16px;border:1px solid var(--line);
+  border-radius:20px;background:var(--panel2);color:var(--accent);font-size:.82em}
+.wrap{max-width:940px; margin:0 auto; padding:0 24px 90px}
+section{margin:52px 0; scroll-margin-top:64px}
+h2{font-size:1.6em; color:#fff; border-left:4px solid var(--accent); padding-left:14px; margin-top:0}
+h3{font-size:1.22em; color:var(--accent2); margin-top:34px}
+h4{font-size:1.05em; color:var(--pink); margin:24px 0 8px}
+p{margin:14px 0}
+.muted{color:var(--muted)}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:22px 26px; margin:20px 0}
+.note{background:var(--panel2); border-left:4px solid var(--green); padding:14px 18px; border-radius:6px; margin:18px 0; color:#cfe8c8}
+.warn{background:var(--panel2); border-left:4px solid var(--accent2); padding:14px 18px; border-radius:6px; margin:18px 0; color:#f2dcb0}
+.key{background:var(--panel2); border-left:4px solid var(--pink); padding:14px 18px; border-radius:6px; margin:18px 0; color:#ffd6e7}
+code{background:var(--code); padding:2px 7px; border-radius:5px; font-family:"JetBrains Mono",Consolas,monospace; font-size:.9em; color:#ffd479}
+.eq{background:var(--code); border:1px solid var(--line); border-radius:8px; padding:6px 18px; margin:18px 0; overflow-x:auto}
+nav{position:sticky; top:0; z-index:10; background:rgba(14,18,22,.93); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line); padding:10px 18px; display:flex; gap:5px; flex-wrap:wrap; justify-content:center}
+nav a{color:var(--muted); text-decoration:none; font-size:.83em; padding:5px 10px; border-radius:6px; transition:.15s}
+nav a:hover{background:var(--panel2); color:var(--accent)}
+table{width:100%; border-collapse:collapse; margin:18px 0; font-size:.92em}
+th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+th{background:var(--panel2); color:#fff}
+.tag{display:inline-block; background:var(--panel2); border:1px solid var(--line); color:var(--accent);
+  border-radius:20px; padding:2px 12px; font-size:.8em; margin:2px}
+footer{text-align:center; color:var(--muted); padding:40px 24px; border-top:1px solid var(--line); font-size:.9em}
+.svgbox{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:18px;margin:20px 0;text-align:center}
+.svgbox svg{max-width:100%;height:auto}
+ul.clean{margin:12px 0;padding-left:22px}
+ul.clean li{margin:7px 0}
+.dim{color:var(--muted);font-size:.9em}
+</style>
+</head>
+<body>
+<header>
+  <h1>VINS-Mono 紧耦合非线性优化原理详解</h1>
+  <p>Tightly-Coupled Sliding-Window Nonlinear Optimization</p>
+  <p>视觉惯性状态估计 · 位姿优化 · 边缘化 · 重定位</p>
+  <div class="badge">基于 Qin, Li, Shen, "VINS-Mono", IEEE T-RO 2018</div>
+</header>
+<nav>
+  <a href="#intro">紧耦合思想</a>
+  <a href="#state">状态向量</a>
+  <a href="#cost">目标函数</a>
+  <a href="#imu">IMU 残差</a>
+  <a href="#cov">预积分协方差</a>
+  <a href="#visual">视觉残差</a>
+  <a href="#solve">求解与优化</a>
+  <a href="#marg">边缘化</a>
+  <a href="#relocal">重定位</a>
+  <a href="#posegraph">位姿图</a>
+  <a href="#summary">总结</a>
+</nav>
+<div class="wrap">
+
+<section id="intro">
+  <h2>紧耦合 vs. 松耦合:为什么选择紧耦合</h2>
+  <p>视觉惯性融合有两条技术路线。VINS-Mono 选择了<b>紧耦合(tightly-coupled)</b>的非线性优化方案,这是它精度高、鲁棒性强的根本原因。</p>
+  <table>
+    <tr><th>方案</th><th>做法</th><th>缺陷 / 优势</th></tr>
+    <tr><td><b>松耦合</b><br><span class="dim">loosely-coupled</span></td><td>视觉单独算出一个位姿,IMU 单独算出一个位姿,再用滤波器(如 EKF)把两个位姿"加权平均"融合。</td><td>视觉的原始观测(特征点)信息被提前压缩成一个位姿,丢失了大量约束;两个子系统的误差无法相互校正。</td></tr>
+    <tr><td><b>紧耦合</b><br><span class="dim">tightly-coupled</span></td><td>把<b>IMU 原始预积分量</b>与<b>视觉原始特征观测</b>放进<b>同一个</b>优化问题,联合估计所有状态。</td><td>✅ 充分利用每一个原始观测;视觉与 IMU 互相约束、互相校正;精度与鲁棒性显著更高。</td></tr>
+  </table>
+  <div class="key">🔑 核心理念:VINS-Mono 把后端建模为一个<b>最大后验估计(MAP)</b>问题,通过<b>最小化所有传感器残差的马氏距离之和</b>来求解一个<b>滑动窗口</b>内的全部状态。这等价于一个非线性最小二乘问题,用 Gauss-Newton / Levenberg-Marquardt 迭代求解(代码中基于 Ceres Solver)。</div>
+  <h3>三大模块协同</h3>
+  <ul class="clean">
+    <li><b>测量预处理</b>:前端 KLT 光流跟踪特征点;IMU 在两帧间做预积分。</li>
+    <li><b>初始化</b>:用纯视觉 SfM + 视觉惯性对齐,给后端提供尺度、重力、速度、零偏的初值。</li>
+    <li><b>紧耦合后端(本文重点)</b>:滑动窗口非线性优化,联合 IMU + 视觉 + 边缘化先验(+重定位),持续输出高精度位姿。</li>
+  </ul>
+</section>
+
+<section id="state">
+  <h2>滑动窗口的状态向量</h2>
+  <p>为了把计算量限制在常数级,VINS-Mono 只优化最近 $n+1$ 个关键帧组成的<b>滑动窗口</b>。完整待优化变量为:</p>
+  <div class="eq">
+  $$\mathcal{X} = \big[\, x_0,\, x_1,\, \cdots,\, x_n,\; x_c^b,\; \lambda_0,\, \lambda_1,\, \cdots,\, \lambda_m \,\big]$$
+  $$x_k = \big[\, p_{b_k}^w,\; v_{b_k}^w,\; q_{b_k}^w,\; b_a,\; b_g \,\big],\quad k\in[0,n]$$
+  $$x_c^b = \big[\, p_c^b,\; q_c^b \,\big]$$
+  </div>
+  <table>
+    <tr><th>符号</th><th>含义</th><th>维度</th></tr>
+    <tr><td>$p_{b_k}^w,\ v_{b_k}^w,\ q_{b_k}^w$</td><td>第 $k$ 帧 IMU(body)在世界系下的<b>位置、速度、姿态</b></td><td>3 + 3 + 4(四元数,3 DoF)</td></tr>
+    <tr><td>$b_a,\ b_g$</td><td>加速度计零偏、陀螺仪零偏</td><td>3 + 3</td></tr>
+    <tr><td>$x_c^b$</td><td>相机-IMU 之间的<b>外参</b>(可在线标定优化)</td><td>3 + 4</td></tr>
+    <tr><td>$\lambda_l$</td><td>第 $l$ 个路标点的<b>逆深度</b>(inverse depth)</td><td>1</td></tr>
+  </table>
+  <div class="note">💡 <b>为什么用逆深度而不是 3D 坐标?</b> 路标点用"在其首次被观测的相机帧中的逆深度 $\lambda=1/d$"来参数化,只需 1 个标量而非 3 个,大幅减少变量维度;且逆深度对远点(深度趋于无穷)有更好的数值稳定性和近似高斯的不确定性分布。</div>
+  <div class="warn">⚠️ <b>四元数的过参数化问题:</b> 四元数有 4 个分量但旋转只有 3 个自由度。优化时不能直接对 4 个分量做加法(会破坏单位约束),而是在<b>切空间(李代数)</b>上用 3 维扰动 $\delta\theta$ 更新:$q \leftarrow q \otimes \begin{bmatrix}1 \\ \frac12\delta\theta\end{bmatrix}$。Ceres 中通过 <code>LocalParameterization</code> 实现。</div>
+</section>
+
+<section id="cost">
+  <h2>总目标函数:三类残差之和</h2>
+  <p>VINS-Mono 把状态估计写成一个<b>非线性最小二乘</b>问题。优化目标是最小化三类残差项的<b>马氏范数</b>(Mahalanobis norm,即用协方差加权的平方和)总和:</p>
+  <div class="eq">
+  $$\min_{\mathcal{X}} \left\{
+  \underbrace{\big\| r_p - H_p\,\mathcal{X} \big\|^2}_{\text{① 边缘化先验}}
+  + \underbrace{\sum_{k\in\mathcal{B}} \big\| r_{\mathcal{B}}(\hat z_{b_{k+1}}^{b_k},\,\mathcal{X}) \big\|^2_{P_{b_{k+1}}^{b_k}}}_{\text{② IMU 预积分残差}}
+  + \underbrace{\sum_{(l,j)\in\mathcal{C}} \big\| r_{\mathcal{C}}(\hat z_l^{c_j},\,\mathcal{X}) \big\|^2_{P_l^{c_j}}}_{\text{③ 视觉重投影残差}}
+  \right\}$$
+  </div>
+  <table>
+    <tr><th>项</th><th>来源</th><th>作用</th></tr>
+    <tr><td>① $\{r_p, H_p\}$</td><td>边缘化(marginalization)</td><td>把被移出窗口的旧状态信息压缩成一个<b>先验约束</b>,保留历史信息又不增加变量。</td></tr>
+    <tr><td>② IMU 残差</td><td>相邻帧间的预积分量 $\hat z_{b_{k+1}}^{b_k}$</td><td>约束相邻帧的位置/速度/姿态/零偏要符合 IMU 运动学。</td></tr>
+    <tr><td>③ 视觉残差</td><td>路标 $l$ 在相机帧 $j$ 的观测 $\hat z_l^{c_j}$</td><td>约束路标点重投影到图像上要与实际观测一致。</td></tr>
+  </table>
+  <h4>什么是马氏范数?</h4>
+  <p>$\|r\|^2_P = r^\top P^{-1} r$,其中 $P$ 是该残差对应的<b>协方差矩阵</b>。它的意义是:<b>越确定(协方差小)的观测,权重越大</b>。这让不同量纲、不同精度的传感器观测可以被公平地放进同一个目标函数。IMU 残差的 $P$ 来自预积分的协方差传播,视觉残差的 $P$ 来自像素噪声。</p>
+  <div class="key">🔑 求解器(LM)反复线性化这个目标函数,构建<b>正规方程</b> $H\,\delta\mathcal{X} = b$(其中 $H=\sum J^\top P^{-1} J$ 是信息矩阵,$b=-\sum J^\top P^{-1} r$),解出增量 $\delta\mathcal{X}$ 更新所有状态,直到收敛。下面逐一拆解每类残差的具体形式。</div>
+</section>
+
+<section id="imu">
+  <h2>② IMU 预积分残差</h2>
+  <p>相邻两帧 $b_k, b_{k+1}$ 之间的 IMU 数据被预积分成位置增量 $\hat\alpha$、速度增量 $\hat\beta$、旋转增量 $\hat\gamma$。残差衡量"用当前状态估计推算出的相邻帧相对运动"与"IMU 预积分测得的相对运动"之间的差异,是一个 <b>15 维</b>向量:</p>
+  <div class="eq">
+  $$r_{\mathcal{B}}(\hat z_{b_{k+1}}^{b_k}, \mathcal{X}) =
+  \begin{bmatrix}
+  \delta\alpha_{b_{k+1}}^{b_k} \\[6pt]
+  \delta\beta_{b_{k+1}}^{b_k} \\[6pt]
+  \delta\theta_{b_{k+1}}^{b_k} \\[6pt]
+  \delta b_a \\[6pt]
+  \delta b_g
+  \end{bmatrix}
+  =
+  \begin{bmatrix}
+  R_w^{b_k}\!\big(p_{b_{k+1}}^w - p_{b_k}^w + \tfrac12 g^w\Delta t_k^2 - v_{b_k}^w\Delta t_k\big) - \hat\alpha_{b_{k+1}}^{b_k} \\[6pt]
+  R_w^{b_k}\!\big(v_{b_{k+1}}^w + g^w\Delta t_k - v_{b_k}^w\big) - \hat\beta_{b_{k+1}}^{b_k} \\[6pt]
+  2\,\Big[\, (q_{b_k}^w)^{-1}\otimes q_{b_{k+1}}^w \otimes (\hat\gamma_{b_{k+1}}^{b_k})^{-1} \,\Big]_{xyz} \\[6pt]
+  b_{a,\,b_{k+1}} - b_{a,\,b_k} \\[6pt]
+  b_{g,\,b_{k+1}} - b_{g,\,b_k}
+  \end{bmatrix}$$
+  </div>
+  <table>
+    <tr><th>分量</th><th>约束含义</th></tr>
+    <tr><td>$\delta\alpha$(位置)</td><td>由两帧位姿、速度、重力推算的位置增量,应等于预积分位置 $\hat\alpha$。注意重力项 $\frac12 g^w\Delta t^2$ 把重力对位移的影响扣除。</td></tr>
+    <tr><td>$\delta\beta$(速度)</td><td>由两帧速度与重力推算的速度增量,应等于预积分速度 $\hat\beta$。</td></tr>
+    <tr><td>$\delta\theta$(姿态)</td><td>两帧姿态的相对旋转,应等于预积分旋转 $\hat\gamma$;取四元数虚部 $[\cdot]_{xyz}$ 作为 3 维误差。</td></tr>
+    <tr><td>$\delta b_a,\ \delta b_g$</td><td>零偏建模为<b>随机游走</b>,相邻帧零偏之差应接近 0(其协方差由随机游走噪声决定)。</td></tr>
+  </table>
+  <div class="note">💡 <b>零偏一阶修正:</b> 当优化过程中零偏 $b_a, b_g$ 发生变化时,无需重新积分原始 IMU 数据,而是用预先算好的雅可比对 $\hat\alpha,\hat\beta,\hat\gamma$ 做一阶线性修正,例如 $\hat\alpha \approx \hat\alpha + J^\alpha_{b_a}\delta b_a + J^\alpha_{b_g}\delta b_g$。这正是预积分技术高效的关键。</div>
+</section>
+
+<section id="cov">
+  <h2>预积分的协方差传播</h2>
+  <p>IMU 残差的权重(马氏范数中的 $P_{b_{k+1}}^{b_k}$)来自预积分量的<b>不确定性</b>。它在积分每一小步 IMU 数据时,通过<b>误差状态的线性递推</b>传播得到。</p>
+  <p>定义误差状态 $\delta z = [\delta\alpha,\delta\beta,\delta\theta,\delta b_a,\delta b_g]^\top$,其连续时间动力学线性化为 $\dot{\delta z} = F\,\delta z + G\,n$,离散化后逐步递推:</p>
+  <div class="eq">
+  $$\delta z_{t+\delta t} = (I + F_t\,\delta t)\,\delta z_t + (G_t\,\delta t)\,n_t$$
+  $$P_{t+\delta t} = (I + F_t\delta t)\,P_t\,(I + F_t\delta t)^\top + (G_t\delta t)\,Q\,(G_t\delta t)^\top$$
+  </div>
+  <ul class="clean">
+    <li>$F_t$:误差状态转移矩阵($15\times15$),由当前姿态、加速度、角速度构成。</li>
+    <li>$G_t$:噪声雅可比,把 IMU 的<b>测量噪声</b>(加速度计/陀螺仪白噪声)和<b>零偏随机游走噪声</b>映射到误差状态。</li>
+    <li>$Q$:IMU 原始噪声的对角协方差(由标定得到的连续时间噪声密度)。</li>
+    <li>$P_t$:从 $b_k$ 起积分到当前时刻的累积协方差,初值 $P_{b_k}=0$。</li>
+  </ul>
+  <p>同时,零偏雅可比 $J$ 也随 $J_{t+\delta t}=(I+F_t\delta t)J_t$ 一起递推,供上一节的零偏一阶修正使用。积分到 $b_{k+1}$ 得到最终 $P_{b_{k+1}}^{b_k}$,其逆即为 IMU 残差的信息矩阵权重。</p>
+  <div class="warn">⚠️ 直觉:两帧间隔越长、运动越剧烈,预积分不确定性越大,$P$ 越大,该 IMU 约束在优化中的权重就越小——这与物理直觉一致。</div>
+</section>
+
+<section id="visual">
+  <h2>③ 视觉重投影残差(球面误差)</h2>
+  <p>视觉残差衡量:把路标点 $l$ 从它<b>首次被观测</b>的相机帧 $c_i$ 变换、重投影到当前观测帧 $c_j$ 后,预测位置与<b>实际观测</b>位置之间的差异。VINS-Mono 用<b>逆深度</b>参数化路标,并采用<b>单位球面上的切平面误差</b>(适配各种相机模型,包括大 FoV 鱼眼)。</p>
+  <div class="svgbox">
+  <svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+    <!-- frame i -->
+    <circle cx="120" cy="190" r="6" fill="#5aa9ff"/>
+    <text x="98" y="222" fill="#8a96a5" font-size="13">相机帧 $c_i$ (首次观测)</text>
+    <text x="100" y="238" fill="#8a96a5" font-size="13">逆深度 λ</text>
+    <!-- frame j -->
+    <circle cx="600" cy="120" r="6" fill="#ffb454"/>
+    <text x="560" y="100" fill="#8a96a5" font-size="13">相机帧 $c_j$</text>
+    <!-- landmark -->
+    <circle cx="380" cy="60" r="7" fill="#7fd86f"/>
+    <text x="395" y="55" fill="#7fd86f" font-size="13">路标点 P_l</text>
+    <!-- rays -->
+    <line x1="120" y1="190" x2="380" y2="60" stroke="#5aa9ff" stroke-width="1.6"/>
+    <line x1="600" y1="120" x2="380" y2="60" stroke="#ffb454" stroke-width="1.6" stroke-dasharray="2 0"/>
+    <!-- predicted vs observed at j -->
+    <circle cx="540" cy="150" r="4" fill="#ff7eb6"/>
+    <text x="455" y="175" fill="#ff7eb6" font-size="12">预测投影 (来自 λ)</text>
+    <circle cx="560" cy="138" r="4" fill="#fff"/>
+    <text x="575" y="170" fill="#fff" font-size="12">实际观测</text>
+    <line x1="540" y1="150" x2="560" y2="138" stroke="#ff7eb6" stroke-width="2"/>
+    <text x="470" y="200" fill="#ff7eb6" font-size="13">残差 = 两者在切平面上的差</text>
+    <!-- world frame transform note -->
+    <line x1="120" y1="190" x2="600" y2="120" stroke="#2a3540" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="280" y="165" fill="#8a96a5" font-size="12">经 $T^w_{b_i}\!\to\!T^w_{b_j}$ + 外参变换</text>
+  </svg>
+  </div>
+  <h4>重投影流程(逆深度反投影 → 多次坐标变换 → 投影)</h4>
+  <p>设路标 $l$ 在首帧 $c_i$ 的归一化观测为 $\hat u_l^{c_i}=[u,v,1]^\top$,逆深度为 $\lambda_l$。它在帧 $c_j$ 中的<b>预测</b>三维坐标经一连串刚体变换得到:</p>
+  <div class="eq">
+  $$P_l^{c_j} = R_b^c\Big( R_w^{b_j}\big( R_{b_i}^w\big( R_c^b \tfrac{1}{\lambda_l}\hat u_l^{c_i} + p_c^b \big) + p_{b_i}^w - p_{b_j}^w \big) - p_c^b \Big)$$
+  </div>
+  <p class="dim">含义:① 用逆深度把首帧像素反投影成 $c_i$ 系下的 3D 点 → ② 经外参转到 IMU 系 $b_i$ → ③ 经 $b_i$ 位姿转到世界系 $w$ → ④ 经 $b_j$ 位姿转回 IMU 系 $b_j$ → ⑤ 经外参转到相机系 $c_j$。整条链路把<b>两帧位姿、外参、逆深度</b>全部耦合进残差——这正是"紧耦合"在视觉侧的体现。</p>
+  <h4>球面切平面残差</h4>
+  <p>传统重投影误差定义在图像平面;VINS-Mono 把预测点和观测点都<b>投影到单位球面</b>,在球面切平面上比较,定义 2 维残差:</p>
+  <div class="eq">
+  $$r_{\mathcal{C}} =
+  \begin{bmatrix} b_1 \\ b_2 \end{bmatrix}^\top
+  \left( \frac{P_l^{c_j}}{\|P_l^{c_j}\|} - \hat{\bar u}_l^{c_j} \right),
+  \qquad \hat{\bar u}_l^{c_j} = \frac{[\hat u_l^{c_j};\,1]}{\|[\hat u_l^{c_j};\,1]\|}$$
+  </div>
+  <p>其中 $\hat{\bar u}_l^{c_j}$ 是实际观测在单位球面上的方向,$b_1,b_2$ 是球面切平面上的两个正交基。该残差对应的协方差由<b>像素噪声</b>(经相机内参传播到归一化平面)给出。</p>
+  <div class="note">💡 <b>为什么用球面误差?</b> 对针孔相机,球面误差与平面误差近似等价;但对<b>大视场鱼眼/全景相机</b>,图像平面误差在边缘会严重失真,而单位球面对所有方向一视同仁,使 VINS-Mono 能通用于多种相机模型。</div>
+  <div class="key">🔑 优化时,求解器需要 $r_{\mathcal{C}}$ 对 $\{p_{b_i}^w, q_{b_i}^w, p_{b_j}^w, q_{b_j}^w, x_c^b, \lambda_l\}$ 的<b>解析雅可比</b>。VINS-Mono 推导了全部解析雅可比(而非数值微分),这是它能实时运行的关键性能保证。</div>
+</section>
+
+<section id="solve">
+  <h2>非线性最小二乘求解</h2>
+  <p>把三类残差堆叠成一个总残差向量 $r(\mathcal{X})$,目标是 $\min_{\mathcal{X}} \frac12\|r(\mathcal{X})\|^2$。这是非线性问题,采用<b>迭代线性化</b>:在当前估计 $\mathcal{X}$ 附近一阶展开 $r(\mathcal{X}\boxplus\delta\mathcal{X}) \approx r(\mathcal{X}) + J\,\delta\mathcal{X}$,得到正规方程:</p>
+  <div class="eq">
+  $$\underbrace{\Big(\textstyle\sum_i J_i^\top P_i^{-1} J_i\Big)}_{H\ \text{(信息矩阵, Hessian 近似)}}\,\delta\mathcal{X} = \underbrace{-\textstyle\sum_i J_i^\top P_i^{-1} r_i}_{b}$$
+  </div>
+  <ul class="clean">
+    <li>用 <b>Levenberg-Marquardt</b> 给 $H$ 加阻尼项 $\mu I$ 保证正定与收敛:$(H+\mu I)\delta\mathcal{X}=b$。</li>
+    <li>用 $\boxplus$ 算子更新状态:平移/速度/零偏直接相加,旋转在切空间用 $\delta\theta$ 更新。</li>
+    <li>迭代直到 $\|\delta\mathcal{X}\|$ 或代价下降小于阈值;实现上委托给 <b>Ceres Solver</b>。</li>
+  </ul>
+  <h4>Schur 补加速</h4>
+  <p>路标点数量 $m$ 远多于位姿,$H$ 具有<b>箭头/稀疏结构</b>(位姿块稠密、路标块对角)。利用 <b>Schur complement</b> 先消去逆深度 $\lambda$,得到只含位姿的<b>缩减系统</b>求解,再回代求路标增量。复杂度从 $O((6n+m)^3)$ 降到约 $O((6n)^3 + m)$,这是实时 BA 的标准技巧。</p>
+  <div class="note">💡 整个滑动窗口典型大小约 10~11 个关键帧。每来一个新帧/关键帧就重新优化一次,输出当前窗口最新帧的高精度位姿。</div>
+</section>
+
+<section id="marg">
+  <h2>边缘化(Marginalization):保留历史信息</h2>
+  <p>滑动窗口若直接丢弃旧帧,会损失约束、导致漂移;若全保留,变量无限增长无法实时。<b>边缘化</b>是二者的平衡:把要移出窗口的旧状态,用<b>Schur 补</b>转化为一个等价的<b>先验项</b> $\{r_p, H_p\}$(目标函数中的第①项),保留其对剩余变量的约束信息。</p>
+  <h4>两种边缘化策略(由次新帧决定)</h4>
+  <table>
+    <tr><th>情形</th><th>判据</th><th>处理</th></tr>
+    <tr><td><b>MARGIN_OLD</b><br>边缘化最老帧</td><td>次新帧是关键帧(与新帧有足够视差)</td><td>把<b>最老的关键帧</b>及其独有路标边缘化掉,转成先验,保留长基线约束。</td></tr>
+    <tr><td><b>MARGIN_SECOND_NEW</b><br>丢弃次新帧</td><td>次新帧不是关键帧(视差不足)</td><td><b>直接扔掉次新帧</b>的视觉观测(不边缘化,避免引入线性化误差),但保留其 IMU 预积分以维持时间连续性。</td></tr>
+  </table>
+  <h4>边缘化的数学:Schur 补</h4>
+  <p>把待边缘化变量记为 $x_m$,保留变量记为 $x_r$,正规方程分块为:</p>
+  <div class="eq">
+  $$\begin{bmatrix} H_{mm} & H_{mr} \\ H_{rm} & H_{rr} \end{bmatrix}
+  \begin{bmatrix} \delta x_m \\ \delta x_r \end{bmatrix}
+  = \begin{bmatrix} b_m \\ b_r \end{bmatrix}$$
+  </div>
+  <p>消去 $\delta x_m$ 后,得到只关于保留变量的<b>先验信息矩阵与先验残差</b>:</p>
+  <div class="eq">
+  $$H_p = H_{rr} - H_{rm}H_{mm}^{-1}H_{mr}, \qquad
+  b_p = b_r - H_{rm}H_{mm}^{-1}b_m$$
+  </div>
+  <p>它在下一轮优化中作为先验项 $\|r_p - H_p\delta x_r\|^2$ 参与,使被删除的历史观测"虽人已走、约束犹存"。</p>
+  <div class="warn">⚠️ <b>First-Estimate Jacobian (FEJ) 的隐患:</b> 边缘化会把雅可比<b>固定</b>在边缘化发生时刻的线性化点。若后续这些变量被更新,先验的线性化点就与当前估计不一致,可能引入<b>虚假信息、破坏系统可观测性</b>。VINS-Mono 通过保持先验对应变量的线性化点一致来缓解。</div>
+</section>
+
+<section id="relocal">
+  <h2>重定位:回环约束融入紧耦合优化</h2>
+  <p>VIO 长期运行会累积漂移。VINS-Mono 用<b>回环检测 + 重定位</b>来消除漂移,且回环约束是<b>紧耦合</b>地加入滑动窗口优化的(而非简单覆盖位姿)。</p>
+  <h4>流程</h4>
+  <ol>
+    <li><b>回环检测</b>:用 <b>DBoW2</b> 词袋对每个关键帧的 BRIEF 描述子做检索,找到候选回环帧。</li>
+    <li><b>特征匹配 + 几何校验</b>:BRIEF 描述子匹配,再用 RANSAC 基础矩阵 / PnP 剔除外点,确认回环。</li>
+    <li><b>重定位优化</b>:把回环帧当作<b>位姿固定的额外帧</b>加入当前滑动窗口优化。回环帧观测到的特征点与当前窗口共享,产生<b>额外的视觉重投影残差</b>:</li>
+  </ol>
+  <div class="eq">
+  $$\min_{\mathcal{X}} \Big\{ \|r_p - H_p\mathcal{X}\|^2 + \sum_{\mathcal{B}}\|r_{\mathcal{B}}\|^2 + \sum_{\mathcal{C}}\|r_{\mathcal{C}}\|^2
+  + \underbrace{\sum_{(l,v)\in\mathcal{L}} \|r_{\mathcal{C}}(\hat z_l^v, \mathcal{X}, \hat q_v^w, \hat p_v^w)\|^2}_{\text{回环重投影残差}} \Big\}$$
+  </div>
+  <p>其中 $\mathcal{L}$ 是回环帧集合,$(\hat q_v^w, \hat p_v^w)$ 是回环帧的位姿(取自已有位姿图,作为<b>常量</b>)。由于回环帧位姿固定,这一项相当于把当前漂移的轨迹"拉回"到历史一致的位置——而且是在保持 IMU、视觉一致性的前提下联合优化的。</p>
+  <div class="note">💡 紧耦合重定位的优势:回环不是生硬地替换位姿,而是与 IMU、当前视觉约束一起平衡求解,既消除漂移又保持局部运动的物理一致性,不会产生跳变。</div>
+</section>
+
+<section id="posegraph">
+  <h2>全局位姿图优化(4-DoF)</h2>
+  <p>重定位解决了滑动窗口内的漂移;为保证<b>全局一致性</b>,VINS-Mono 维护一个<b>位姿图</b>,在回环确认后做全局优化。</p>
+  <div class="key">🔑 <b>只优化 4 个自由度!</b> 在 VIO 中,<b>横滚(roll)和俯仰(pitch)由重力方向直接可观测、不漂移</b>。因此全局位姿图只需优化每帧的 <b>3 维位置 + 偏航角(yaw)</b>,共 4-DoF。这降低了维度,也避免在可观测方向上引入误差。</p>
+  <h4>位姿图残差</h4>
+  <p>每条边(顺序边或回环边)约束两帧的相对位姿。帧 $i,j$ 之间的相对残差为:</p>
+  <div class="eq">
+  $$r_{i,j} =
+  \begin{bmatrix}
+  R(\hat\phi_i,\hat\theta_i,\psi_i)^{-1}(p_j^w - p_i^w) - \hat p_{ij} \\[4pt]
+  \psi_j - \psi_i - \hat\psi_{ij}
+  \end{bmatrix}$$
+  </div>
+  <p>其中 $\hat\phi_i,\hat\theta_i$(roll/pitch)取自 VIO 估计并<b>固定</b>,只有 $p^w$ 和 yaw $\psi$ 是优化变量。所有顺序边 + 回环边的残差用 <b>Huber 核</b>(抑制错误回环的外点影响)做最小二乘优化:</p>
+  <div class="eq">
+  $$\min_{p,\psi} \Big\{ \sum_{(i,j)\in\mathcal{S}} \|r_{i,j}\|^2 + \sum_{(i,j)\in\mathcal{L}} \rho\big(\|r_{i,j}\|^2\big) \Big\}$$
+  </div>
+  <p>$\mathcal{S}$ 为顺序边(相邻关键帧),$\mathcal{L}$ 为回环边,$\rho$ 为 Huber 鲁棒核。优化后的全局轨迹具有漂移消除、全局一致的特性,且可与滑动窗口 VIO <b>并行</b>运行,互不阻塞实时性。</p>
+</section>
+
+<section id="summary">
+  <h2>总结:紧耦合优化全景</h2>
+  <div class="card">
+    <p>VINS-Mono 的状态估计本质是一个<b>分层的非线性最小二乘体系</b>,在精度、鲁棒性与实时性之间取得平衡:</p>
+    <table>
+      <tr><th>层级</th><th>问题</th><th>优化变量</th><th>残差/方法</th></tr>
+      <tr><td><b>滑窗 VIO</b><br>(实时高频)</td><td>局部状态估计</td><td>位姿、速度、零偏、外参、逆深度</td><td>边缘化先验 + IMU 残差 + 视觉残差,LM 求解</td></tr>
+      <tr><td><b>重定位</b></td><td>消除窗口内漂移</td><td>同上(回环帧位姿固定)</td><td>额外回环重投影残差,紧耦合融入</td></tr>
+      <tr><td><b>全局位姿图</b><br>(低频后台)</td><td>全局一致性</td><td>每帧 3D 位置 + yaw(4-DoF)</td><td>顺序边 + 回环边,Huber 核</td></tr>
+    </table>
+    <p style="margin-top:18px"><b>设计精髓:</b></p>
+    <p><span class="tag">紧耦合</span> IMU 预积分量与视觉原始观测进同一目标函数,信息无损、互相校正。</p>
+    <p><span class="tag">滑动窗口</span> 限定变量规模,保证常数级实时计算。</p>
+    <p><span class="tag">边缘化</span> 用 Schur 补把旧状态压成先验,既限规模又保历史。</p>
+    <p><span class="tag">逆深度 + 球面误差</span> 减少变量维度,通用各类相机。</p>
+    <p><span class="tag">解析雅可比 + Schur 补</span> 让大规模 BA 实时可解。</p>
+    <p><span class="tag">4-DoF 位姿图</span> 利用重力可观测性,只优化漂移的方向。</p>
+  </div>
+  <div class="key">🔑 一句话概括:<b>VINS-Mono 把视觉与惯性观测统一为一个用协方差加权的非线性最小二乘问题,在滑动窗口上联合优化全部状态,辅以边缘化保留历史、重定位与位姿图消除漂移,从而实现高精度、鲁棒、实时的单目视觉惯性状态估计。</b></div>
+</section>
+
+</div>
+<footer>
+  VINS-Mono 紧耦合非线性优化原理 · 基于 T. Qin, P. Li, S. Shen,<br>
+  "VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator", IEEE Transactions on Robotics, 2018
+</footer>
+</body>
+</html>

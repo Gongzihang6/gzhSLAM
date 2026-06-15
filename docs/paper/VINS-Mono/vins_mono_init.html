@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VINS-Mono 初始化原理详解</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root{
+  --bg:#0f1419; --panel:#1a2029; --panel2:#222b36; --txt:#d6dde6;
+  --muted:#8b97a6; --accent:#4ea1ff; --accent2:#ffb454; --green:#7fd86f;
+  --line:#2c3742; --code:#11161c;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--txt);
+  font-family:-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.75; font-size:16px;
+}
+header{
+  padding:60px 24px 40px; text-align:center;
+  background:linear-gradient(160deg,#16202b 0%,#0f1419 100%);
+  border-bottom:1px solid var(--line);
+}
+header h1{margin:0 0 12px; font-size:2.1em; color:#fff; letter-spacing:.5px}
+header p{margin:0; color:var(--muted); font-size:1.05em}
+.wrap{max-width:920px; margin:0 auto; padding:0 24px 80px}
+section{margin:48px 0; scroll-margin-top:20px}
+h2{
+  font-size:1.55em; color:#fff; border-left:4px solid var(--accent);
+  padding-left:14px; margin-top:0;
+}
+h3{font-size:1.2em; color:var(--accent2); margin-top:32px}
+p{margin:14px 0}
+.muted{color:var(--muted)}
+.card{
+  background:var(--panel); border:1px solid var(--line);
+  border-radius:12px; padding:22px 26px; margin:20px 0;
+}
+.note{
+  background:var(--panel2); border-left:4px solid var(--green);
+  padding:14px 18px; border-radius:6px; margin:18px 0; color:#cfe8c8;
+}
+.warn{
+  background:var(--panel2); border-left:4px solid var(--accent2);
+  padding:14px 18px; border-radius:6px; margin:18px 0; color:#f2dcb0;
+}
+code{
+  background:var(--code); padding:2px 7px; border-radius:5px;
+  font-family:"JetBrains Mono",Consolas,monospace; font-size:.9em; color:#ffd479;
+}
+.eq{
+  background:var(--code); border:1px solid var(--line); border-radius:8px;
+  padding:6px 16px; margin:18px 0; overflow-x:auto;
+}
+nav{
+  position:sticky; top:0; z-index:10; background:rgba(15,20,25,.92);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  padding:10px 24px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+}
+nav a{
+  color:var(--muted); text-decoration:none; font-size:.85em;
+  padding:5px 11px; border-radius:6px; transition:.15s;
+}
+nav a:hover{background:var(--panel2); color:var(--accent)}
+.pipeline{display:flex; flex-direction:column; gap:10px; margin:24px 0}
+.step{
+  display:flex; align-items:center; gap:16px; background:var(--panel);
+  border:1px solid var(--line); border-radius:10px; padding:16px 20px;
+}
+.step .num{
+  flex:none; width:38px; height:38px; border-radius:50%;
+  background:var(--accent); color:#04101e; font-weight:700;
+  display:flex; align-items:center; justify-content:center; font-size:1.05em;
+}
+.step .body b{color:#fff}
+.arrow{text-align:center; color:var(--accent); font-size:1.3em; line-height:.5}
+table{width:100%; border-collapse:collapse; margin:18px 0; font-size:.92em}
+th,td{border:1px solid var(--line); padding:9px 12px; text-align:left}
+th{background:var(--panel2); color:#fff}
+.tag{
+  display:inline-block; background:var(--panel2); border:1px solid var(--line);
+  color:var(--accent); border-radius:20px; padding:2px 12px; font-size:.8em; margin:2px;
+}
+footer{text-align:center; color:var(--muted); padding:40px 24px; border-top:1px solid var(--line); font-size:.9em}
+</style>
+</head>
+<body>
+<header>
+  <h1>VINS-Mono 初始化原理详解</h1>
+  <p>单目视觉惯性里程计 (Visual-Inertial Odometry) 的鲁棒初始化流程</p>
+</header>
+<nav>
+  <a href="#why">为何需要初始化</a>
+  <a href="#overview">整体流程</a>
+  <a href="#sfm">① 纯视觉 SfM</a>
+  <a href="#preint">② IMU 预积分</a>
+  <a href="#gyro">③ 陀螺仪 Bias 标定</a>
+  <a href="#align">④ 速度/重力/尺度</a>
+  <a href="#refine">⑤ 重力细化</a>
+  <a href="#world">⑥ 对齐世界系</a>
+  <a href="#summary">总结</a>
+</nav>
+<div class="wrap">
+
+<section id="why">
+  <h2>为何单目 VIO 必须初始化</h2>
+  <div class="card">
+    <p>VINS-Mono 是一个紧耦合的<b>单目 + IMU</b> 系统。两类传感器各有"先天缺陷",必须在后端非线性优化(滑动窗口 BA)开始前,先求出一组靠谱的初始值,否则优化极易陷入局部极小或直接发散。</p>
+    <table>
+      <tr><th>未知量</th><th>原因</th></tr>
+      <tr><td><b>尺度 (scale)</b> $s$</td><td>单目相机无法恢复绝对尺度,SfM 得到的平移只是"相差一个比例因子"的相对值。</td></tr>
+      <tr><td><b>重力方向</b> $g$</td><td>IMU 加速度计测量值中混入了重力,必须先知道重力在初始相机系下的方向,才能把它从加速度中扣除。</td></tr>
+      <tr><td><b>陀螺仪零偏</b> $b_g$</td><td>陀螺仪存在缓变偏置,直接积分会导致姿态漂移。</td></tr>
+      <tr><td><b>每帧速度</b> $v$</td><td>紧耦合优化需要速度作为状态量的初值。</td></tr>
+    </table>
+    <p class="muted">加速度计零偏 $b_a$ 在初始化阶段通常<b>不单独标定</b>:它与重力高度耦合(都体现在加速度里),且初始时刻数据短、激励弱,强行估计反而不稳,因此 VINS-Mono 将其初值设为 0,留给后端优化慢慢收敛。</p>
+  </div>
+  <div class="note">
+    💡 核心思想:<b>先用纯视觉求出可靠的相对位姿(SfM),再用 IMU 预积分把视觉信息"对齐"到带尺度、带重力的物理世界。</b> 这就是所谓的"视觉惯性对齐 (Visual-Inertial Alignment)"。
+  </div>
+</section>
+
+<section id="overview">
+  <h2>整体流程总览</h2>
+  <div class="pipeline">
+    <div class="step"><div class="num">1</div><div class="body"><b>纯视觉 SfM</b><br><span class="muted">在滑动窗口内构建无尺度的相机位姿与路标点,得到相对旋转与"相差尺度"的平移。</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="step"><div class="num">2</div><div class="body"><b>IMU 预积分</b><br><span class="muted">将相邻关键帧之间的高频 IMU 测量预先积分成位置/速度/旋转增量。</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="step"><div class="num">3</div><div class="body"><b>陀螺仪零偏标定</b><br><span class="muted">用视觉旋转约束 IMU 预积分旋转,最小二乘求解 $b_g$。</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="step"><div class="num">4</div><div class="body"><b>速度 / 重力 / 尺度初始化</b><br><span class="muted">建立线性方程组,一次性解出每帧速度、重力向量与尺度因子。</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="step"><div class="num">5</div><div class="body"><b>重力向量细化</b><br><span class="muted">固定重力模长 $|g|=9.81$,在切平面上迭代优化重力方向。</span></div></div>
+    <div class="arrow">↓</div>
+    <div class="step"><div class="num">6</div><div class="body"><b>对齐到世界系</b><br><span class="muted">把重力转到 z 轴,恢复带尺度的真实轨迹,启动滑窗优化。</span></div></div>
+  </div>
+</section>
+
+<section id="sfm">
+  <h2>① 纯视觉 SfM(Structure from Motion)</h2>
+  <p>初始化第一步完全不用 IMU,只靠图像恢复一个<b>局部、无尺度</b>的相机位姿与三维点云。</p>
+  <h3>关键步骤</h3>
+  <div class="card">
+    <ol>
+      <li><b>选参考帧</b>:在滑动窗口中找一帧与最新帧之间,既有<b>足够视差(parallax)</b>又有足够多匹配特征点的帧。视差不够说明相机几乎没动,无法稳定三角化。</li>
+      <li><b>求相对位姿</b>:对这两帧用<b>对极几何 / 五点法</b>求本质矩阵 $E$,分解得到相对旋转 $R$ 与平移方向 $t$(平移只有方向、模长归一,这就是"无尺度"的来源)。</li>
+      <li><b>三角化</b>:用这两帧位姿三角化出初始路标点。</li>
+      <li><b>PnP 扩展</b>:对窗口内其余帧,用已有 3D 点做 PnP 求位姿,再三角化更多点。</li>
+      <li><b>全局 BA</b>:对整个窗口做一次纯视觉 Bundle Adjustment,联合优化所有相机位姿与路标点,得到一致的局部地图。</li>
+    </ol>
+  </div>
+  <div class="warn">⚠️ 此时所有平移量都带有一个<b>未知公共尺度因子 $s$</b>,即真实平移 $= s \times$ SfM平移。SfM 也无法感知重力。后续步骤的任务就是借 IMU 补上 $s$ 和 $g$。</div>
+  <p class="muted">注:SfM 得到的旋转 $R^{c_0}_{c_k}$ 是相对准确的(尺度不影响旋转),这是下一步标定陀螺仪零偏的关键约束来源。</p>
+</section>
+
+<section id="preint">
+  <h2>② IMU 预积分(Pre-integration)</h2>
+  <p>IMU 输出频率(几百 Hz)远高于相机(几十 Hz)。若每次优化都重新积分两帧间所有 IMU 数据,代价太大。<b>预积分</b>把两关键帧 $b_k \to b_{k+1}$ 之间的 IMU 测量预先积成三个增量,且写成只与零偏相关、与绝对位姿/重力无关的形式。</p>
+  <div class="eq">
+  $$\alpha_{b_{k+1}}^{b_k} = \iint_{t\in[k,k+1]} R_t^{b_k}(\hat a_t - b_a)\,dt^2,\quad
+  \beta_{b_{k+1}}^{b_k} = \int_{t\in[k,k+1]} R_t^{b_k}(\hat a_t - b_a)\,dt$$
+  $$\gamma_{b_{k+1}}^{b_k} = \int_{t\in[k,k+1]} \tfrac{1}{2}\,\Omega(\hat\omega_t - b_g)\,\gamma_t\,dt$$
+  </div>
+  <p>分别是<b>位置增量 $\alpha$</b>、<b>速度增量 $\beta$</b> 和<b>旋转增量 $\gamma$</b>(四元数)。它们在参考系 $b_k$ 下定义,因此与世界系的重力、初始速度<b>解耦</b>。</p>
+  <div class="note">✅ 预积分量只依赖 IMU 原始测量和零偏 $b_g, b_a$。当零偏发生小变化时,可用一阶雅可比直接<b>线性修正</b>,无需重新积分——这正是它在初始化与后端中被反复使用的原因。</div>
+  <p>由 IMU 运动学,相邻帧的世界系状态满足以下关系(后续对齐方程的基础):</p>
+  <div class="eq">
+  $$p_{b_{k+1}}^w = p_{b_k}^w + v_{b_k}^w \Delta t - \tfrac{1}{2}g^w \Delta t^2 + R_{b_k}^w \alpha_{b_{k+1}}^{b_k}$$
+  $$v_{b_{k+1}}^w = v_{b_k}^w - g^w \Delta t + R_{b_k}^w \beta_{b_{k+1}}^{b_k}$$
+  </div>
+</section>
+
+<section id="gyro">
+  <h2>③ 陀螺仪零偏标定</h2>
+  <p>视觉 SfM 给出的相邻帧旋转 $q_{b_k}^{c_0}$、$q_{b_{k+1}}^{c_0}$ 是较准确的;而 IMU 预积分旋转增量 $\gamma_{b_{k+1}}^{b_k}$ 中含有零偏误差。两者本应一致,据此构造约束:</p>
+  <div class="eq">
+  $$\min_{\delta b_g} \sum_{k\in B} \left\| \,\gamma_{b_{k+1}}^{b_k}{}^{-1} \otimes (q_{b_k}^{c_0})^{-1} \otimes q_{b_{k+1}}^{c_0} \,\right\|^2$$
+  </div>
+  <p>理想情况下括号内的相对旋转应为单位四元数(虚部为 0)。把 $\gamma$ 关于零偏做一阶展开 $\gamma_{b_{k+1}}^{b_k} \approx \hat\gamma_{b_{k+1}}^{b_k} \otimes \begin{bmatrix}1 \\[2pt] \tfrac12 J_{b_g}\,\delta b_g\end{bmatrix}$,令虚部为零,得到关于 $\delta b_g$ 的 $3\times 3$ 线性最小二乘正规方程,直接求解:</p>
+  <div class="eq">
+  $$\big(J^\top J\big)\,\delta b_g = J^\top \, b$$
+  </div>
+  <p>求得 $\delta b_g$ 后更新 $b_g$,再用一阶雅可比<b>重新传播(repropagate)</b>所有预积分量 $\alpha,\beta,\gamma$。此阶段假设 $b_a$ 暂为 0。</p>
+</section>
+
+<section id="align">
+  <h2>④ 速度、重力与尺度初始化(线性对齐)</h2>
+  <p>这是初始化的<b>核心</b>。利用第②步的运动学方程,把待求量拼成一个大向量,构造<b>线性最小二乘</b>一次性求解。待求状态:</p>
+  <div class="eq">
+  $$\mathcal{X}_I = \big[\, v_{b_0}^{b_0},\; v_{b_1}^{b_1},\; \cdots,\; v_{b_n}^{b_n},\; g^{c_0},\; s \,\big]^\top$$
+  </div>
+  <p>其中每帧速度在<b>各自的 body 系</b>下表示,$g^{c_0}$ 是初始相机系下的重力向量,$s$ 是把 SfM 平移变成真实尺度的因子。把运动学方程中的 $p_{b_k}^w$ 用 SfM 位姿($s\,\bar p^{c_0}_{c_k}$ 与外参 $p_c^b$)代入并整理,得到对每对相邻帧成立的线性观测:</p>
+  <div class="eq">
+  $$\hat z_{b_{k+1}}^{b_k} =
+  \begin{bmatrix} \alpha_{b_{k+1}}^{b_k} - p_c^b + R_{c_0}^{b_k}R_{b_{k+1}}^{c_0}p_c^b \\[4pt] \beta_{b_{k+1}}^{b_k} \end{bmatrix}
+  = H_{b_{k+1}}^{b_k}\,\mathcal{X}_I + \text{noise}$$
+  </div>
+  <p>其中 $H$ 是只含已知量(预积分、SfM 旋转、$\Delta t$、外参)的系数矩阵。把窗口内所有相邻帧的观测堆叠成 $H\mathcal{X}_I = z$,解正规方程:</p>
+  <div class="eq">
+  $$\mathcal{X}_I = \big(H^\top H\big)^{-1} H^\top z$$
+  </div>
+  <div class="note">✅ 关键洞察:<b>重力把绝对尺度"焊"进了方程。</b> 加速度计同时测到重力($\approx 9.81$)与运动加速度,只要轨迹有足够运动激励,$g$ 的已知模长就成了"标尺",从而让单目缺失的尺度 $s$ 变得可观测。这也是为什么<b>初始化时必须有充分的平移激励(不能纯旋转/静止)</b>。</div>
+</section>
+
+<section id="refine">
+  <h2>⑤ 重力向量细化</h2>
+  <p>第④步把 $g^{c_0}$ 当成自由的 3 维向量来解,但其<b>模长其实是已知常数</b> $|g| = 9.81\,\text{m/s}^2$。直接解出的 $g$ 模长通常略有偏差。细化做法是固定模长、只优化方向——这是一个 2 自由度问题。</p>
+  <p>把重力参数化为 $g = |g|\,\hat{\bar g} + w_1 b_1 + w_2 b_2$,其中 $\hat{\bar g}$ 是当前重力方向单位向量,$b_1,b_2$ 是其<b>切平面</b>上的两个正交基,$w_1,w_2$ 是待求的 2 维扰动:</p>
+  <div class="eq">
+  $$g \leftarrow |g|\,\hat{\bar g} + b_1 w_1 + b_2 w_2$$
+  </div>
+  <p>用这个 2 维参数化替换第④步方程中的 $g$,重新构建并求解线性系统,得到 $w_1,w_2$ 后更新 $\hat{\bar g}$ 并归一化。<b>迭代数次</b>直到收敛。这样既保证 $|g|$ 守恒,又把待求维度从 3 降到 2,数值更稳。</p>
+</section>
+
+<section id="world">
+  <h2>⑥ 恢复世界系并启动优化</h2>
+  <p>此时已得到初始相机系 $c_0$ 下的重力 $g^{c_0}$、尺度 $s$、各帧速度与零偏。最后一步是把整个系统对齐到<b>重力对齐的世界系 $w$</b>(z 轴竖直向上):</p>
+  <div class="card">
+    <ol>
+      <li>计算把 $g^{c_0}$ 旋转到世界系 $z$ 轴 $[0,0,1]$ 的旋转 $R^{w}_{c_0}$(绕水平轴旋转,yaw 不可观测,设为 0)。</li>
+      <li>用 $R^{w}_{c_0}$ 把所有位姿、速度、重力从 $c_0$ 系转到 $w$ 系。</li>
+      <li>用尺度 $s$ 把所有平移量乘上,恢复<b>带公制单位(米)</b>的真实轨迹。</li>
+      <li>用估到的速度、$b_g$($b_a=0$)填充滑动窗口状态。</li>
+    </ol>
+  </div>
+  <div class="note">🎯 初始化完成!系统拿到一组物理一致的初值,随后进入<b>紧耦合滑动窗口非线性优化</b>(IMU 预积分残差 + 视觉重投影残差 + 边缘化先验),持续联合估计位姿、速度、零偏与路标点。加速度计零偏 $b_a$ 也在此阶段开始被优化收敛。</div>
+</section>
+
+<section id="summary">
+  <h2>总结</h2>
+  <div class="card">
+    <p>VINS-Mono 的初始化把一个<b>高度非线性、强耦合</b>的问题,巧妙拆解为一串<b>近似线性</b>的子问题,逐个稳定求解:</p>
+    <table>
+      <tr><th>步骤</th><th>求解对象</th><th>方法</th></tr>
+      <tr><td>① SfM</td><td>无尺度相对位姿 + 路标</td><td>对极几何 / PnP / 视觉 BA</td></tr>
+      <tr><td>② 预积分</td><td>IMU 运动增量</td><td>解析积分 + 雅可比</td></tr>
+      <tr><td>③ 陀螺标定</td><td>$b_g$</td><td>$3\times3$ 线性最小二乘</td></tr>
+      <tr><td>④ 线性对齐</td><td>$v_k,\ g^{c_0},\ s$</td><td>大型线性最小二乘</td></tr>
+      <tr><td>⑤ 重力细化</td><td>$g$ 方向</td><td>切平面 2-DoF 迭代</td></tr>
+      <tr><td>⑥ 对齐世界系</td><td>带尺度真实轨迹</td><td>旋转 + 缩放</td></tr>
+    </table>
+    <p style="margin-top:18px"><b>三个要点:</b></p>
+    <p><span class="tag">解耦</span> 预积分让 IMU 约束与绝对位姿无关,使线性化成为可能。</p>
+    <p><span class="tag">重力即标尺</span> 已知重力模长是单目尺度可观测的根本来源。</p>
+    <p><span class="tag">充分激励</span> 初始化需要足够的<b>平移运动</b>,纯旋转或静止会导致尺度/速度不可观测而失败。</p>
+  </div>
+</section>
+
+</div>
+<footer>
+  VINS-Mono 初始化原理 · 基于 Qin et al., "VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator" (IEEE T-RO 2018)
+</footer>
+</body>
+</html>

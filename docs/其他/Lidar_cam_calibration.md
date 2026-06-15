@@ -332,17 +332,17 @@ CRLF是一种完全自动化、无目标（Targetless）的单帧 LiDAR-Camera �
 
 CRLF 采用了一种“由粗到精（Coarse-to-Fine）”的策略，其核心流程分为三个阶段：
 
-<span style="color:#d59bf6;">第一阶段：线特征提取 (Line Feature Extractor)</span>
+**<span style="color:#d59bf6;">第一阶段：线特征提取 (Line Feature Extractor)</span>**
 
 如前文所述，算法分别在图像和点云中独立工作。在点云中通过反射率和高度几何特征提取出 3D 车道线和电线杆点云；在图像中通过 BiSeNet-V2 网络提取出 2D 的车道线和电线杆像素掩码。
 
-<span style="color:#d59bf6;">第二阶段：基于 P3L 的粗标定 (Coarse Calibration)</span>
+<span style="color:#d59bf6;">**第二阶段：基于 P3L 的粗标定 (Coarse Calibration)**</span>
 
 传统方法寻找初始外参往往很难，且动态物体（如行驶的汽车）会带来运动畸变误差。CRLF 放弃了点特征，将问题转化为一个 **Perspective-3-Lines (P3L)** 问题。
 
 **特征拟合**：在提取出的点云和图像特征上，利用霍夫变换（Hough transform）和 RANSAC 拟合出数学意义上的直线方程。**构建约束**：算法在图像和点云中分别选取 **3 条线对应关系（2 条车道线，1 根电线杆）**。**简化与求解**：在一般情况下求解 P3L 涉及复杂的八次方程。为了极大地简化计算，CRLF 引入了一个“车道线彼此平行”的假设，并利用一个与地面平行的中间坐标系，快速解算出相机的粗略旋转和位移矩阵。**穷举与打分**：由于不知道图像里的哪条线对应点云里的哪条线，算法会穷举所有可能的线对应组合，计算出多个候选的外参矩阵，并利用一个代价函数对它们进行打分，得分最高的那组被选为**粗标定结果（Coarse calibration）**。
 
-<span style="color:#d59bf6;">第三阶段：基于语义代价函数的细标定 (Calibration Refinement)</span>
+**<span style="color:#d59bf6;">第三阶段：基于语义代价函数的细标定 (Calibration Refinement)</span>**
 
 由于粗标定阶段只用了 3 条线，且现实中车道线并非绝对平行，因此需要进行全局非线性优化来细化参数。
 

@@ -130,6 +130,10 @@ nav:
           - VGGT:
                 - paper/VGGT/VGGT.md
                 - paper/VGGT/VGGT_omega.md
+          - VINS-Mono:
+                - paper/VINS-Mono/VINS-Mono.md
+          - ORB-SLAM:
+                - paper/ORB-SLAM/ORB-SLAM.md
     - SLAM面经:
           - SLAM面经/SLAM面经1.md
           - SLAM面经/视觉SLAM.md
@@ -141,6 +145,7 @@ nav:
           - 其他/Cholesky分解.md
           - 其他/cvparallel_for_并行.md
           - 其他/Lidar_cam_calibration.md
+          - 其他/点云描述符/Scan-Context.md
 # 右上角展示GitHub仓库
 repo_url: https://github.com/Gongzihang6/gzhSLAM
 repo_name: Gongzihang6/gzhSLAM
