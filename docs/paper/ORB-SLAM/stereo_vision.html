@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双目相机测距原理详解</title>
+    <!-- 引入 MathJax 用于渲染数学公式 -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f9f9f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 15px;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            margin-top: 30px;
+            border-left: 5px solid var(--accent-color);
+            padding-left: 10px;
+        }
+
+        .highlight-box {
+            background-color: #e8f4fc;
+            border: 1px solid #bce0f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        /* SVG 样式 */
+        .diagram-container {
+            text-align: center;
+            margin: 30px 0;
+            overflow-x: auto;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .svg-text {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            fill: #333;
+        }
+
+        .svg-line {
+            stroke: #555;
+            stroke-width: 2;
+        }
+
+        .svg-dash {
+            stroke: #999;
+            stroke-width: 1;
+            stroke-dasharray: 5,5;
+        }
+
+        .svg-accent {
+            stroke: var(--accent-color);
+            stroke-width: 3;
+        }
+
+        /* 交互控件 */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type=range] {
+            width: 150px;
+        }
+
+        code {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.9em;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>👁️ 双目相机测距原理</h1>
+    
+    <p>双目立体视觉（Binocular Stereo Vision）是机器视觉中一种重要的深度感知方法。它模仿人类双眼观察物体的方式，通过两个相机从不同角度拍摄图像，利用<strong>视差（Disparity）</strong>来计算物体的三维距离。</p>
+
+    <div class="highlight-box">
+        <strong>核心概念：</strong> 物体离相机越近，左右眼中的位置差异（视差）越大；物体越远，视差越小。当物体在无穷远时，视差趋近于零。
+    </div>
+
+    <!-- 交互式图解区域 -->
+    <h2>1. 几何模型与交互演示</h2>
+    <p>拖动下方滑块，观察物体距离 ($Z$) 变化时，成像点在左右传感器上的位置变化。</p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="z-slider">物体距离 (Z):</label>
+            <input type="range" id="z-slider" min="20" max="200" value="60" step="1">
+            <span id="z-val">60</span>
+        </div>
+        <div class="control-group">
+            <label for="f-slider">焦距 (f):</label>
+            <input type="range" id="f-slider" min="5" max="20" value="10" step="1">
+            <span id="f-val">10</span>
+        </div>
+    </div>
+
+    <div class="diagram-container">
+        <svg id="stereo-svg" viewBox="0 0 600 350" xmlns="http://www.w3.org/2000/svg">
+            <!-- 定义箭头 -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#3498db" />
+                </marker>
+            </defs>
+
+            <!-- 基线 B -->
+            <line x1="150" y1="300" x2="450" y2="300" class="svg-line" stroke-width="3" />
+            <text x="300" y="320" text-anchor="middle" class="svg-text" font-weight="bold">基线 (Baseline) = B</text>
+
+            <!-- 左相机光心 Ol -->
+            <circle cx="150" cy="300" r="5" fill="#2c3e50" />
+            <text x="140" y="320" class="svg-text">O_l</text>
+
+            <!-- 右相机光心 Or -->
+            <circle cx="450" cy="300" r="5" fill="#2c3e50" />
+            <text x="460" y="320" class="svg-text">O_r</text>
+
+            <!-- 成像平面 (Image Plane) -->
+            <line x1="100" y1="200" x2="500" y2="200" class="svg-line" stroke="#aaa" />
+            <text x="510" y="205" class="svg-text" fill="#777">成像平面 (f)</text>
+
+            <!-- 动态元素组 -->
+            <g id="dynamic-elements">
+                <!-- 物体 P -->
+                <circle id="point-p" cx="300" cy="100" r="8" fill="#e74c3c" />
+                <text id="label-p" x="310" y="95" class="svg-text" fill="#e74c3c" font-weight="bold">P (物体)</text>
+
+                <!-- 连线 O_l -> P -->
+                <line id="line-lp" x1="150" y1="300" x2="300" y2="100" class="svg-dash" />
+                
+                <!-- 连线 O_r -> P -->
+                <line id="line-rp" x1="450" y1="300" x2="300" y2="100" class="svg-dash" />
+
+                <!-- 左成像点 p_l -->
+                <circle id="point-pl" cx="225" cy="200" r="5" fill="#3498db" />
+                <text id="label-pl" x="225" y="190" text-anchor="middle" class="svg-text" fill="#3498db">p_l</text>
+
+                <!-- 右成像点 p_r -->
+                <circle id="point-pr" cx="375" cy="200" r="5" fill="#3498db" />
+                <text id="label-pr" x="375" y="190" text-anchor="middle" class="svg-text" fill="#3498db">p_r</text>
+
+                <!-- 视差标注 d -->
+                <line id="disp-line" x1="225" y1="210" x2="375" y2="210" stroke="#3498db" stroke-width="2" marker-end="url(#arrowhead)" marker-start="url(#arrowhead)" />
+                <text id="disp-text" x="300" y="230" text-anchor="middle" class="svg-text" fill="#3498db">视差 (d)</text>
+                
+                <!-- 深度 Z 标注 -->
+                <line id="z-line" x1="300" y1="300" x2="300" y2="100" stroke="#2c3e50" stroke-width="1" stroke-dasharray="4" />
+                <text id="z-text" x="310" y="250" class="svg-text" fill="#2c3e50">Z (深度)</text>
+            </g>
+        </svg>
+    </div>
+
+    <!-- 数学推导 -->
+    <h2>2. 数学推导：三角测量法</h2>
+    <p>假设两个相机参数完全相同，且处于同一水平线上（极线校正后）。根据相似三角形原理：</p>
+
+    <div style="font-size: 1.1em; text-align: center; margin: 20px 0;">
+        $$ \frac{B - d}{Z - f} = \frac{B}{Z} $$
+    </div>
+
+    <p>其中：</p>
+    <ul>
+        <li>\( B \)：<strong>基线长度</strong>（两个相机光心的距离）</li>
+        <li>\( f \)：<strong>焦距</strong>（光心到成像平面的距离）</li>
+        <li>\( Z \)：<strong>深度</strong>（物体到基线的垂直距离）</li>
+        <li>\( d \)：<strong>视差</strong>（\( d = x_l - x_r \)，即同一点在左右图像上的像素坐标差）</li>
+    </ul>
+
+    <p>经过代数变换，我们可以得到著名的<strong>双目测距公式</strong>：</p>
+
+    <div class="highlight-box" style="text-align: center; font-size: 1.3em;">
+        $$ Z = \frac{f \cdot B}{d} $$
+    </div>
+
+    <p><strong>结论分析：</strong></p>
+    <ol>
+        <li>深度 \( Z \) 与视差 \( d \) 成<strong>反比</strong>。视差越大，距离越近。</li>
+        <li>基线 \( B \) 越长，可测量的距离越远，精度越高（但盲区也越大）。</li>
+        <li>如果 \( d = 0 \)，则 \( Z \to \infty \)（物体在无穷远处）。</li>
+    </ol>
+
+    <!-- 实际流程 -->
+    <h2>3. 工程实现流程</h2>
+    <p>在实际计算机视觉系统中，计算过程如下：</p>
+    <ol>
+        <li><strong>相机标定 (Calibration)：</strong> 获取内参（焦距、主点）和外参（旋转、平移矩阵），并进行畸变矫正。</li>
+        <li><strong>极线校正 (Rectification)：</strong> 通过算法将两张图像变换到同一行对齐，使得搜索匹配点时只需在水平方向搜索，大大降低计算量。</li>
+        <li><strong>立体匹配 (Stereo Matching)：</strong> 核心难点。在左图中选取一个特征块，在右图对应的极线上寻找最相似的块。常用算法有 SGBM、BM 或基于深度学习的匹配网络。</li>
+        <li><strong>视差图生成 (Disparity Map)：</strong> 对每个像素计算视差 \( d \)，形成灰度图（越亮代表越近）。</li>
+        <li><strong>深度计算：</strong> 应用公式 \( Z = fB/d \) 将视差图转换为深度图或点云。</li>
+    </ol>
+
+    <footer>
+        <p>Generated for Educational Purpose | Stereo Vision Principle</p>
+    </footer>
+</div>
+
+<script>
+    // 获取DOM元素
+    const zSlider = document.getElementById('z-slider');
+    const fSlider = document.getElementById('f-slider');
+    const zValSpan = document.getElementById('z-val');
+    const fValSpan = document.getElementById('f-val');
+
+    // SVG 元素
+    const pointP = document.getElementById('point-p');
+    const labelP = document.getElementById('label-p');
+    const lineLP = document.getElementById('line-lp');
+    const lineRP = document.getElementById('line-rp');
+    const pointPL = document.getElementById('point-pl');
+    const pointPR = document.getElementById('point-pr');
+    const labelPL = document.getElementById('label-pl');
+    const labelPR = document.getElementById('label-pr');
+    const dispLine = document.getElementById('disp-line');
+    const dispText = document.getElementById('disp-text');
+    const zLine = document.getElementById('z-line');
+    const zText = document.getElementById('z-text');
+
+    // 固定参数 (SVG坐标系)
+    const Ol_x = 150;
+    const Or_x = 450;
+    const Baseline_y = 300;
+    const ImagePlane_y = 200; // 成像平面在光心上方100单位处(模拟针孔模型倒立成像的简化版，这里为了直观画成正立)
+    
+    // 注意：为了可视化方便，我们采用简化的正立成像模型
+    // 实际上针孔成像是倒立的，但数学关系 Z/f = X/x 是一致的
+    
+    function updateDiagram() {
+        // 获取当前值
+        let Z = parseInt(zSlider.value); // 物体高度(相对于基线)
+        let f = parseInt(fSlider.value); // 焦距(成像平面距离光心的距离)
+        
+        // 更新显示数值
+        zValSpan.textContent = Z;
+        fValSpan.textContent = f;
+
+        // 物理限制：物体必须在成像平面之外，否则无法成像
+        if (Z <= f + 5) {
+            Z = f + 5;
+            zSlider.value = Z;
+        }
+
+        // 设定物体X坐标固定在中间 (300)
+        const P_x = 300; 
+        const P_y = Baseline_y - Z; // SVG Y轴向下，所以减去Z
+
+        // 计算成像点位置
+        // 根据相似三角形: x_img / f = (P_x - O_x) / Z
+        // 注意：这里的f是SVG中的像素距离，对应slider的值乘以一个比例系数以便观察
+        // 为了让图好看，我们让成像平面固定在 y=200，改变f实际上是改变"虚拟焦距"或者理解为缩放
+        // 更直观的模拟：保持成像平面y=200不变，f_slider控制的是有效焦距长度
+        
+        // 重新定义：成像平面距离基线的距离是固定的 (100px)，
+        // 但为了演示 f 的作用，我们假设成像平面位置随 f 变化，或者保持成像平面不动，
+        // 这里采用：成像平面位置 = Baseline_y - f * scale_factor
+        
+        const scale = 5; // 放大f的视觉效果
+        const img_plane_y = Baseline_y - (f * scale);
+        
+        // 更新成像平面线条
+        document.querySelector('#stereo-svg line[stroke="#aaa"]').setAttribute('y1', img_plane_y);
+        document.querySelector('#stereo-svg line[stroke="#aaa"]').setAttribute('y2', img_plane_y);
+
+        // 计算左成像点 p_l
+        // 斜率 k = (P_y - Baseline_y) / (P_x - Ol_x)
+        // x_pl = Ol_x + (img_plane_y - Baseline_y) / k
+        // 简化公式: x_pl = Ol_x + f_eff * (P_x - Ol_x) / Z
+        const f_eff = f * scale;
+        
+        const pl_x = Ol_x + (f_eff * (P_x - Ol_x)) / Z;
+        const pr_x = Or_x + (f_eff * (P_x - Or_x)) / Z;
+
+        // 更新 SVG 元素属性
+        // 1. 物体 P
+        pointP.setAttribute('cy', P_y);
+        labelP.setAttribute('y', P_y - 10);
+
+        // 2. 连线
+        lineLP.setAttribute('x2', P_x);
+        lineLP.setAttribute('y2', P_y);
+        lineRP.setAttribute('x2', P_x);
+        lineRP.setAttribute('y2', P_y);
+
+        // 3. 成像点
+        pointPL.setAttribute('cx', pl_x);
+        pointPL.setAttribute('cy', img_plane_y);
+        labelPL.setAttribute('x', pl_x);
+        labelPL.setAttribute('y', img_plane_y - 10);
+
+        pointPR.setAttribute('cx', pr_x);
+        pointPR.setAttribute('cy', img_plane_y);
+        labelPR.setAttribute('x', pr_x);
+        labelPR.setAttribute('y', img_plane_y - 10);
+
+        // 4. 视差线
+        dispLine.setAttribute('x1', pl_x);
+        dispLine.setAttribute('x2', pr_x);
+        dispLine.setAttribute('y1', img_plane_y + 15);
+        dispLine.setAttribute('y2', img_plane_y + 15);
+        dispText.setAttribute('x', (pl_x + pr_x) / 2);
+        dispText.setAttribute('y', img_plane_y + 35);
+
+        // 5. Z轴线
+        zLine.setAttribute('y2', P_y);
+        zText.setAttribute('y', Baseline_y - Z/2);
+    }
+
+    // 绑定事件
+    zSlider.addEventListener('input', updateDiagram);
+    fSlider.addEventListener('input', updateDiagram);
+
+    // 初始化
+    updateDiagram();
+</script>
+
+</body>
+</html>

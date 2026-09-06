@@ -219,115 +219,312 @@ workspace和特征的来源是分开的。
 | 这些latent是不是普通BEV？                   | 形状是BEV-shaped，但内容来说ray/depth/point/visibility/temporal/future预训练 |
 | Planning需要先等OD/Occ/FutureHead的输出吗？ | 不需要，OD/Occ/FutureHead是可选probe，Planning直接查latent； |
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```
+Final workspace = ego_t BEV grid
+Cell feature    = Stage1 geometry latent
+                 + Stage2 temporal geometry latent
+                 + Stage2 future geometry latent
+Planning        = candidate trajectory Q queries these BEV latent K/V
+```
+
+### 🧩 BEV Dense or Sparse？
+
+最准确的定义不是“纯 sparse BEV”，也不是“传统裸 dense BEV”
+
+**Visibility-aware dense BEV latent with sparse planning queries,可见性约束的稠密 BEV latent + 稀疏轨迹查询。**
+
+| **模块 / 维度**       | **状态 / 属性**        | **详细说明**                                                 |
+| --------------------- | ---------------------- | ------------------------------------------------------------ |
+| **BEV 工作空间**      | **Dense**              | geometry_bev_seed, geometry_world_feature, future_geometry_feature。默认是固定 `Hb x Wb` 网格，便于 ego warp, temporal fusion, future rollout 和 probe 解码。 |
+| **原始几何 evidence** | **Sparse / ray-based** | camera ray, LiDAR point。有效 dense-depth mask 都不是全空间均匀观测；只有被 ray / LiDAR / teacher 确认过的区域才有强证据。 |
+| **BEV cell 可信度**   | **Visibility-aware**   | 每个 cell 可以有 latent, 但必须带 observed / occluded / unknown / uncertainty; 不能把所有 dense cell 都当成确定 free。 |
+| **Planning 读取方式** | **Sparse query**       | Planning 不是读取 `Hb x Wb` dense BEV 直接喂给 MLP，而是只出 `N x K` 个候选轨迹点做 bilinear sample / KV query。 |
+| **上车优化空间**      | **Hybrid**             | 工程上可把远端、低置信、非关键区域 token 化或稀疏化，但接口口径仍然与 BEV grid 对齐。 |
+
+```
+Representation: dense BEV latent
+observation:   sparse/ray-based/visibility-aware
+Planning read: sparse trajectory query
+```
+
+不是“sparse BEV”，因为sparse bev一般只有 occupied cells 或只有 sparse tokens；也不是 "dense BEV"，因为 dense bev 没有 ray evidence、unknown、uncertainty 的相关概念约束。 空间上是 **dense BEV grid**，但其实是 **sparse/visibility-aware**，Planning 访问上是 **sparse query**。
+
+### 🧭 坐标系约定
+
+全义默认用当前帧 ego 坐标系 `ego_t`：
+
+```
+       z up
+       ▲
+       |       
+       |       camera ray / point map 有 z
+       |
+     ego_t ----▶ x forward
+       |
+       ▼ y lateral
+
+
+  BEV working plane = x-y grid at ego_t.
+  Height z is compressed into latent channels, confidence, visibility, and uncertainty.
+
+```
+
+物理坐标链路
+
+```
+                                                    Plain
+  image pixel (u,v)
+     -> camera ray r(u,v)
+     -> metric ray depth d(u,v)
+     -> ego 3D point p_ego=(x,y,z)
+     -> BEV cell cell(ix, iy)
+     -> temporal BEV latent at ego_t
+     -> future BEV latent[k] at ego_t
+     -> planning query at (x_k, y_k, t_k)
+```
+
+**future slice 也表达在当前 `ego_t` 坐标系下**，不是表达在未来 ego 坐标系下，这样 Planning 的候选轨迹可以在同一个 BEV grid 里查询 `t+1..t+K`
+
+### 🏢 BEV Cell 工作空间
+
+BEV 空间是一个二维的网格，每个 cell 里面存放着关于这一块物理空间的特征。
+
+```
+  cell(ix, iy)
+   - covers x ∈ [x_min+ix*dx, x_min+(ix+1)*dx)
+   -        y ∈ [y_min+iy*dy, y_min+(iy+1)*dy)
+   - stores a D-dimensional latent vector
+```
+
+这里的 “特征” 不是简单的 “有/无障碍物 (occupancy)” 或 “语义类别 (category)”，而是高维的隐式特征向量 (Latent)。它不仅“浓缩”了跨模态特征（图像、点云等），还包含了对过去（时间上下文）的记忆和对未来的预测（这部分在后续会详细讲解）。
+
+### 🗺️ BEV 网格俯视图
+
+从上帝视角看 BEV cell，x 向前，y 向左（以 ego 为中心）。
+
+```
+                           x forward
+                             ▲
+               y             |             right
+               left   +------+------+      + = trajectory point t+k
+                      |      |      |      . = tau
+                      |   .  |   +  |      . = tau
+                      |      |      |      . = tau
+                 ego ----+------+------+---
+                      |      |      |      . = tau
+                     |   +  |      |      . = tau
+                     |      |   .  |
+                     +------+------+
+  
+              ix = 0,1...       internal cells         ... Nx, Ny...
+ 
+              ego candidate trajectory point (x_k, y_k) is up to t+K
+
+```
+
+🧩 单个 Cell 的内部卡片
+
+```
+   one bev cell: cell(ix, iy)
+         +------------+
+         |            |
+         | cell(ix,iy)|
+         |            |
+         +------------+
+               |
+               v
+   Physical Meaning:
+    x in [x_min, x_max_dx)
+    y in [y_min, y_max_dy)
+    z is not explicitly partitioned, map/z-confidence in Latent.
+ 
+  Stored Latent at the same cell:
+    geometry_bev_seed[t, ix, iy]         # stage 1
+    geometry_world_feature[t, ix, iy]    # stage 2
+    visibility / unknown / uncertainty_to_...[ix, iy]
+    future_geometry_feature[t_k, ix, iy] # if rollout
+
+```
+
+### 🎯 连续轨迹点如何采样 Cell
+
+轨迹点是一个连续坐标，它并不一定刚好落在一个 cell 中心，所以工程上通常用双线性插值 (bilinear sample)。
+
+```
+代码块
+1   continuous 2D point (x, y) --> fractional index (ix_f, iy_f)
+2 
+3             ix          ix+1
+4         +-------+-------+
+5         |       |       |
+6     iy  |  00   |  10   |
+7         |       |       |
+8         +-------x-------+   <-- (x,y)
+9         |       |       |
+10   iy+1 |  01   |  11   |
+11        |       |       |
+12        +-------+-------+
+13  
+14  Value at (x,y) = w_00 * v_00
+15                 + w_10 * v_10
+16                 + w_01 * v_01
+17                 + w_11 * v_11
+
+```
+
+### 💼 一个 Cell 里的三层 Latent
+
+结合前文的架构总览，在一个 BEV cell 中存放着三层不同阶段、不同含义的特征 Latent。
+
+```
+代码块
+1              One BEV cell: cell(ix, iy) at ego_t
+2   
+3   [ Layer 1: Stage 1 Observation Latent ]
+4     geometry_bev_seed[t, ix, iy]
+5       : ray / depth / point / confidence evidence pooled into this cell
+6 
+7     cell's meaning: "此时此刻，这个 cell 内 看到 了什么"
+8   ---------------------------------------------------------
+9   [ Layer 2: Stage 2 Temporal fused Latent ]
+10    geometry_world_feature[t, ix, iy]
+11      : visibility-aware fusion over time
+12    uncertainty_feature[t, ix, iy]
+13      : + ego_align_query / dynamic_geometry_tokens as global kv
+14 
+15    cell's meaning: "结合历史上下文，这个 cell 内 确定存在 什么"
+16  ---------------------------------------------------------
+17  [ Layer 3: Future Geometry Latent ]
+18    future_geometry_feature[t_k, ix, iy] (k = 1...K)
+19 
+20    cell's meaning: "未来第 k 帧，这个 cell 内 预计会有 什么存在"
+21 
+22  optional decoded probas:
+23    future_occupancy_prob = decode_occ( future_geometry_feature )
+24    flow/semantic/update_prob = decode_other( future_geometry_feature )
+25 
+26  These probas are for loss/debug/visualization, Plan uses latent vector directly.
+```
+
+核心总结/特点：
+
+```
+代码块
+1   Planning reads an M*D vector,
+2   not the BEV cell index or a pre-defined label directly.
+3   not a raw LSS feature and not a decoded head output.
+```
+
+### 🔀 Geometry 如何进入 BEV
+
+`GeometryFeaturePack`的物理核心不是BEV，而是camera ray上的metric surface evidence。stage 1把图像evidence lift成ego 3D点，再把这些点聚合到BEV cell
+
+![image-20260623202807629](https://fastly.jsdelivr.net/gh/Gongzihang6/Pictures@main/Medias/20260623204016703.png)
+
+| 层 | Feature | 物理意义 | 是否 BEV |
+| :--- | :--- | :--- | :--- |
+| ① Image evidence | `image_pyramid` | 像素纹理、边缘、语义线索 | 否 |
+| ② Ray evidence | `ray_tokens`, `ray_direction`, `ray_depth` | 哪条 ray、沿 ray 多远命中 surface | 否 |
+| ③ Ego 3D evidence | `point_map_curr_ego`, `point_confidence` | 真实 $(x,y,z)$ surface 点和可信度 | 否 |
+| ④ BEV interface | `geometry_bev_seed` | 把 ray/point evidence 聚合到 x-y 网格 | 是，接口层 |
+
+> ❗ **重点：** `geometry_bev_seed` 是 Stage 1 geometry 的 BEV 接口，不是完整世界状态。
+
+## 🔄 预训练阶段如何交互
+
+下面这张图只保留主链路，避免把 head/probe 和主输入混在一起。
+
+![image-20260623204010785](https://fastly.jsdelivr.net/gh/Gongzihang6/Pictures@main/Medias/20260623204011063.png)
+
+| 阶段 | 吃什么 | 吐什么 | 谁消费 |
+| :--- | :--- | :--- | :--- |
+| Stage 1 | 7V 图像、pose/calib、离线 dense/sparse depth label | `GeometryFeaturePack` | Stage 2、DepthHead、Planning |
+| Stage 2-A | `GeometryFeaturePack_t-N..t`、ego motion | `TemporalGeometryWorldLatent` | Future rollout、Planning、可选 Occ/Object |
+| Stage 2-B | `TemporalGeometryWorldLatent`、future query | `FutureGeometryLatent` | Planning、可选 FuturePredictionProbe |
+| Planning | 三层 latent + candidate trajectories + ego/route | trajectory scores | 规划输出 |
+
+## 🔍 Planning KV 查询
+
+PlanningHead 的 query 是候选轨迹点，K/V 是三层 latent bank。
+
+```python
+# For each candidate trajectory n and future step k:
+Q[n,k] = encode(x_k, y_k, t_k, ego_state, route_command)
+
+# K/V bank A = Stage 1 geometry BEV cells
+K_A = BEV position encoding cell(ix,iy)
+V_A = geometry_bev_seed[:, ix, iy]
+
+# K/V bank B = Stage 2 temporal BEV cells + memory tokens
+K_B = BEV position encoding + memory position
+V_B = geometry_world_feature / visibility / uncertainty / ego_aligned_memory
+
+# K/V bank C = Future BEV cells at step k
+K_C = BEV position encoding + time encoding k
+V_C = future_geometry_feature[k, :, ix, iv]
+
+trajectory_token[n,k] = fuse(
+    query(Q[n,k], K_A, V_A),
+    query(Q[n,k], K_B, V_B),
+    query(Q[n,k], K_C, V_C)
+)
+
+score[n] = score_head(pool_k(trajectory_token[n, 1:K]))
+```
+
+接口定义：
+
+```python
+PlanningQueryPack = 
+    GeometryFeaturePack
+    + TemporalGeometryWorldLatent
+    + FutureGeometryLatent
+    + candidate_trajectories
+    + ego_history / route_command
+```
+
+## 📋 Feature 字段表
+
+| Feature | 物理空间 | 典型 shape | 物理意义 | 是否 BEV |
+| :--- | :--- | :--- | :--- | :--- |
+| `image_pyramid` | image plane | $B, T, V, C, H, W$ | 图像纹理、边缘、语义线索 | 否 |
+| `ray_tokens` | camera ray | $B, T, V, H, D$ | 每条 ray 上的图像/几何 token | 否 |
+| `ray_direction` | camera/ego ray | $B, T, V, H, W, 3$ | ray 在 ego 系的方向 | 否 |
+| `ray_depth` | camera ray | $B, T, V, H, W$ | ray 命中 surface 的米制距离 | 否 |
+| `point_map_curr_ego` | ego 3D | $B, T, V, H, W, 3$ | 每个像素 lift 到 ego_t 的 $(x,y,z)$ | 否 |
+| `point_confidence` | ray/point evidence | $B, T, V, H, W$ | depth/point 可信度 | 否 |
+| `geometry_bev_seed` | ego BEV | $B, T, C, Hb, Wb$ | Stage 1 geometry 的 BEV 接口 | 是 |
+| `visibility_quality_feature` | ego BEV / derived | $B, T, Cv, Hb, Wb$ | observed / occluded / unknown / quality | 是 |
+| `uncertainty_feature` | ego BEV | $B, T, Cu, Hb, Wb$ | 远距、遮挡、label noise 的不确定性 | 是 |
+| `geometry_world_feature` | ego BEV + time | $B, T, C, Hb, Wb$ | 当前+历史融合后的 temporal world latent | 是，带 temporal |
+| `ego_aligned_memory` | token bank | $B, M, D$ | 历史几何 warp 到当前 ego 后的 memory | 不是固定 BEV |
+| `dynamic_geometry_tokens` | token bank | $B, Q, D$ | 动态几何簇 / motion latent，不是 OD box | 不是固定 BEV |
+| `future_geometry_feature` | ego BEV + future time | $B, K, C, Hb, Wb$ | K-step future geometry latent | 是，带 future |
+| `FuturePredictionProbe` | decoded BEV output | $B, K, *, Hb, Wb$ | future_occ / flow / risk，训练和 debug 用 | 是，probe |
+| `trajectory_token` | trajectory query | $B, N, K, D$ | 候选轨迹点查 latent 后的聚合结果 | 否，轨迹条件化 |
+
+## ⚠️ 混淆点
+
+| 容易误解 | 更准确说法 |
+| :--- | :--- |
+| 最终不是 BEV | 最终工作空间是 BEV；但 BEV cell 里的 feature 来自预训练 latent。 |
+| Geometry feature 就是 BEV feature | Geometry 首先是 ray-depth-point evidence；`geometry_bev_seed` 是它的 BEV 接口。 |
+| Planning 读 BEV | Planning 读候选轨迹在三层 BEV latent 上的查询结果。 |
+| Planning 读 Occ/OD/FutureHead 输出 | Planning 直接读 latent；这些 head 是可选 probe。 |
+| Future latent 就是 future_occ | `FutureGeometryLatent` 是 hidden latent；`future_occ` 是可选解码。 |
+| Dynamic token 就是 OD box | dynamic token 是运动几何 latent；OD box 是可选解码结果。 |
+| unknown 是一个 head 输出 | unknown 首先是 visibility / observation state，head 只是显式 probe。 |
+| 未来图像进入 encoder | 未来帧只能作为 label，encoder 输入严格 $\le t$ 。 |
+
+
+
+![image-20260623204756043](https://fastly.jsdelivr.net/gh/Gongzihang6/Pictures@main/Medias/20260623204756469.png)
+
+![image-20260623204823826](https://fastly.jsdelivr.net/gh/Gongzihang6/Pictures@main/Medias/20260623204824348.png)
+
+![](https://fastly.jsdelivr.net/gh/Gongzihang6/Pictures@main/Medias/20260623204824348.png)
+
+![image-20260623212020218](C:/Users/gzh/AppData/Roaming/Typora/typora-user-images/image-20260623212020218.png)
 
 
 

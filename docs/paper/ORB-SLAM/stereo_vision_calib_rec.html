@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双目相机标定与极线校正原理详解</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e67e22;
+            --secondary-color: #27ae60;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-color: #2d3436;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: var(--primary-color);
+            margin-top: 40px;
+            border-left: 5px solid var(--accent-color);
+            padding-left: 15px;
+        }
+
+        h3 {
+            color: var(--secondary-color);
+            margin-top: 25px;
+        }
+
+        .highlight-box {
+            background-color: #fef5e7;
+            border-left: 4px solid var(--accent-color);
+            padding: 18px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .warning-box {
+            background-color: #fdedec;
+            border-left: 4px solid #e74c3c;
+            padding: 18px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .diagram-container {
+            text-align: center;
+            margin: 30px 0;
+            overflow-x: auto;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .svg-text {
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            fill: #333;
+        }
+
+        .svg-line {
+            stroke: #555;
+            stroke-width: 2;
+        }
+
+        .svg-dash {
+            stroke: #999;
+            stroke-width: 1.5;
+            stroke-dasharray: 6,4;
+        }
+
+        .svg-accent {
+            stroke: var(--accent-color);
+            stroke-width: 2.5;
+        }
+
+        .svg-secondary {
+            stroke: var(--secondary-color);
+            stroke-width: 2;
+        }
+
+        code {
+            background: #eee;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+        }
+
+        .formula-box {
+            background: #f0f7ff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+
+        .step-list {
+            counter-reset: step-counter;
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin-bottom: 15px;
+            padding-left: 40px;
+            position: relative;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 28px;
+            height: 28px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 28px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .tab-container {
+            margin: 20px 0;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 0;
+        }
+
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #ddd;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            font-size: 0.95em;
+            transition: background 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-color);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 0 6px 6px 6px;
+            background: #fff;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #f0f0f0;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.9em;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔧 双目相机标定与极线校正原理详解</h1>
+
+    <p>双目相机标定（Stereo Calibration）和极线校正（Epipolar Rectification）是双目立体视觉系统中至关重要的两个预处理步骤。标定用于获取相机的内参、外参和畸变系数；极线校正则将左右图像变换到同一平面，使匹配搜索从二维降为一维。</p>
+
+    <!-- ==================== 第一部分：相机标定 ==================== -->
+    <h2>第一部分：相机标定（Camera Calibration）</h2>
+
+    <div class="highlight-box">
+        <strong>标定的目的：</strong> 确定相机的<strong>内参矩阵</strong>（焦距、主点、像素尺寸）、<strong>外参矩阵</strong>（旋转和平移）以及<strong>畸变系数</strong>，从而建立像素坐标与世界坐标之间的精确映射关系。
+    </div>
+
+    <h3>1.1 针孔相机模型</h3>
+    <p>在理想情况下，相机成像遵循针孔模型。世界坐标系中的点 \(P_w = [X_w, Y_w, Z_w]^T\) 投影到像素坐标系中的点 \(p = [u, v]^T\)，其数学关系为：</p>
+    
+    <div class="formula-box">
+        $$ s \begin{bmatrix} u \\ v \\ 1 \end{bmatrix} = K \cdot [R|t] \cdot \begin{bmatrix} X_w \\ Y_w \\ Z_w \\ 1 \end{bmatrix} $$
+    </div>
+
+    <p>其中：</p>
+    <ul>
+        <li>\(s\)：尺度因子（深度值 \(Z_c\)）</li>
+        <li>\(K\)：<strong>内参矩阵</strong>（Intrinsic Matrix），描述相机自身的光学特性</li>
+        <li>\([R|t]\)：<strong>外参矩阵</strong>（Extrinsic Matrix），描述相机坐标系相对于世界坐标系的旋转和平移</li>
+    </ul>
+
+    <div class="diagram-container">
+        <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="arrow1" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+                </marker>
+                <marker id="arrow2" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#e67e22"/>
+                </marker>
+            </defs>
+
+            <!-- 世界坐标系 -->
+            <g transform="translate(100, 300)">
+                <line x1="0" y1="0" x2="60" y2="0" stroke="#27ae60" stroke-width="2" marker-end="url(#arrow1)"/>
+                <line x1="0" y1="0" x2="0" y2="-60" stroke="#27ae60" stroke-width="2" marker-end="url(#arrow1)"/>
+                <line x1="0" y1="0" x2="-30" y2="-30" stroke="#27ae60" stroke-width="2" marker-end="url(#arrow1)"/>
+                <text x="65" y="5" class="svg-text" fill="#27ae60">X_w</text>
+                <text x="5" y="-65" class="svg-text" fill="#27ae60">Y_w</text>
+                <text x="-45" y="-35" class="svg-text" fill="#27ae60">Z_w</text>
+                <text x="-20" y="20" class="svg-text" fill="#27ae60">O_w</text>
+            </g>
+
+            <!-- 相机坐标系 -->
+            <g transform="translate(350, 250)">
+                <line x1="0" y1="0" x2="50" y2="0" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow2)"/>
+                <line x1="0" y1="0" x2="0" y2="-50" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow2)"/>
+                <line x1="0" y1="0" x2="-25" y2="-25" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow2)"/>
+                <text x="55" y="5" class="svg-text" fill="#e67e22">X_c</text>
+                <text x="5" y="-55" class="svg-text" fill="#e67e22">Y_c</text>
+                <text x="-40" y="-30" class="svg-text" fill="#e67e22">Z_c</text>
+                <text x="10" y="20" class="svg-text" fill="#e67e22">O_c</text>
+            </g>
+
+            <!-- 成像平面 -->
+            <rect x="280" y="80" width="140" height="100" fill="none" stroke="#999" stroke-width="1.5" stroke-dasharray="5,5"/>
+            <text x="350" y="70" class="svg-text" fill="#777">成像平面</text>
+
+            <!-- 光心到成像平面的连线（光轴） -->
+            <line x1="350" y1="250" x2="350" y2="130" stroke="#555" stroke-width="1.5" stroke-dasharray="4,4"/>
+            <text x="360" y="190" class="svg-text">光轴 (Z_c)</text>
+
+            <!-- 世界点到相机的投影线 -->
+            <line x1="160" y1="200" x2="350" y2="250" stroke="#999" stroke-width="1" stroke-dasharray="3,3"/>
+            <circle cx="160" cy="200" r="5" fill="#27ae60"/>
+            <text x="170" y="195" class="svg-text" fill="#27ae60">P_w</text>
+
+            <!-- 成像点 -->
+            <circle cx="350" cy="130" r="4" fill="#e67e22"/>
+            <text x="360" y="125" class="svg-text" fill="#e67e22">p</text>
+
+            <!-- R, t 标注 -->
+            <line x1="100" y1="300" x2="350" y2="250" stroke="#333" stroke-width="2" marker-end="url(#arrow1)"/>
+            <text x="200" y="290" class="svg-text" font-weight="bold">R, t (外参)</text>
+        </svg>
+    </div>
+
+    <h3>1.2 内参矩阵 K</h3>
+    <p>内参矩阵描述了相机的内部光学特性，包含焦距和主点坐标：</p>
+    <div class="formula-box">
+        $$ K = \begin{bmatrix} f_x & 0 & c_x \\ 0 & f_y & c_y \\ 0 & 0 & 1 \end{bmatrix} $$
+    </div>
+    <ul>
+        <li>\(f_x, f_y\)：焦距（以像素为单位），\(f_x = f \cdot m_x\)，\(f_y = f \cdot m_y\)，其中 \(f\) 为物理焦距（mm），\(m_x, m_y\) 为每毫米的像素数</li>
+        <li>\(c_x, c_y\)：主点坐标（principal point），通常接近图像中心</li>
+    </ul>
+
+    <h3>1.3 镜头畸变模型</h3>
+    <p>实际镜头存在畸变，主要分为两类：</p>
+
+    <h4>径向畸变（Radial Distortion）</h4>
+    <p>由镜头形状引起，表现为"桶形畸变"或"枕形畸变"。用多项式模型描述：</p>
+    <div class="formula-box">
+        $$ \begin{aligned} x_{distorted} &= x(1 + k_1 r^2 + k_2 r^4 + k_3 r^6) \\ y_{distorted} &= y(1 + k_1 r^2 + k_2 r^4 + k_3 r^6) \end{aligned} $$
+    </div>
+    <p>其中 \(r^2 = x^2 + y^2\)，\(k_1, k_2, k_3\) 为径向畸变系数。</p>
+
+    <h4>切向畸变（Tangential Distortion）</h4>
+    <p>由镜头与成像平面不完全平行引起：</p>
+    <div class="formula-box">
+        $$ \begin{aligned} x_{distorted} &= x + [2p_1xy + p_2(r^2 + 2x^2)] \\ y_{distorted} &= y + [p_1(r^2 + 2y^2) + 2p_2xy] \end{aligned} $$
+    </div>
+    <p>其中 \(p_1, p_2\) 为切向畸变系数。</p>
+
+    <div class="diagram-container">
+        <svg viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- 理想网格 -->
+            <g transform="translate(50, 30)">
+                <text x="40" y="-10" class="svg-text" font-weight="bold">理想图像</text>
+                <g stroke="#27ae60" stroke-width="1.5">
+                    <line x1="0" y1="0" x2="120" y2="0"/>
+                    <line x1="0" y1="40" x2="120" y2="40"/>
+                    <line x1="0" y1="80" x2="120" y2="80"/>
+                    <line x1="0" y1="0" x2="0" y2="80"/>
+                    <line x1="40" y1="0" x2="40" y2="80"/>
+                    <line x1="80" y1="0" x2="80" y2="80"/>
+                    <line x1="120" y1="0" x2="120" y2="80"/>
+                </g>
+            </g>
+
+            <!-- 桶形畸变 -->
+            <g transform="translate(280, 30)">
+                <text x="40" y="-10" class="svg-text" font-weight="bold">桶形畸变 (k₁&lt;0)</text>
+                <path d="M0,0 Q10,-5 20,0 T40,0 T60,0 T80,0 T100,0 T120,0" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,40 Q10,35 20,40 T40,40 T60,40 T80,40 T100,40 T120,40" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,80 Q10,85 20,80 T40,80 T60,80 T80,80 T100,80 T120,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,0 Q-5,10 0,20 T0,40 T0,60 T0,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M40,0 Q35,10 40,20 T40,40 T40,60 T40,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M80,0 Q75,10 80,20 T80,40 T80,60 T80,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M120,0 Q125,10 120,20 T120,40 T120,60 T120,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+            </g>
+
+            <!-- 枕形畸变 -->
+            <g transform="translate(50, 120)">
+                <text x="40" y="-10" class="svg-text" font-weight="bold">枕形畸变 (k₁&gt;0)</text>
+                <path d="M0,0 Q10,5 20,0 T40,0 T60,0 T80,0 T100,0 T120,0" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,40 Q10,45 20,40 T40,40 T60,40 T80,40 T100,40 T120,40" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,80 Q10,75 20,80 T40,80 T60,80 T80,80 T100,80 T120,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M0,0 Q5,10 0,20 T0,40 T0,60 T0,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M40,0 Q45,10 40,20 T40,40 T40,60 T40,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M80,0 Q85,10 80,20 T80,40 T80,60 T80,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+                <path d="M120,0 Q115,10 120,20 T120,40 T120,60 T120,80" fill="none" stroke="#e67e22" stroke-width="1.5"/>
+            </g>
+        </svg>
+    </div>
+
+    <h3>1.4 双目标定的完整流程</h3>
+    <p>双目标定需要同时获取左右相机各自的内参、畸变系数，以及两相机之间的相对位姿（旋转矩阵 \(R\) 和平移向量 \(T\)）。</p>
+
+    <ol class="step-list">
+        <li>
+            <strong>采集标定板图像</strong>
+            <p>使用棋盘格或圆点标定板，从不同角度、不同距离拍摄多组（通常 10~20 组）左右相机同步图像对。标定板需要覆盖整个视场范围。</p>
+        </li>
+        <li>
+            <strong>检测特征点</strong>
+            <p>对每张图像检测棋盘格角点或圆点中心，获得像素坐标。同时根据标定板的物理尺寸，确定对应的世界坐标（通常将标定板平面设为 \(Z_w = 0\)）。</p>
+        </li>
+        <li>
+            <strong>单目标定（初始化）</strong>
+            <p>分别对左相机和右相机独立进行单目标定，求解各自的内参矩阵 \(K_l, K_r\) 和畸变系数 \(D_l, D_r\)。这一步通常使用张正友标定法（Zhang's Method），通过最小化重投影误差来优化参数。</p>
+        </li>
+        <li>
+            <strong>双目标定（求解外参）</strong>
+            <p>固定左右相机的内参，利用同步图像对中的对应点，求解右相机相对于左相机的旋转矩阵 \(R\) 和平移向量 \(T\)。本质是求解本质矩阵（Essential Matrix）或基础矩阵（Fundamental Matrix）。</p>
+        </li>
+        <li>
+            <strong>全局优化（Bundle Adjustment）</strong>
+            <p>将所有参数（左右内参、畸变、相对位姿）一起进行非线性优化，最小化所有图像上所有角点的重投影误差：</p>
+            <div class="formula-box">
+                $$ \min \sum_{i=1}^{N} \sum_{j=1}^{M} \| p_{ij} - \pi(K, R, t, P_j) \|^2 $$
+            </div>
+            <p>其中 \(p_{ij}\) 是第 \(i\) 幅图像中第 \(j\) 个角点的观测像素坐标，\(\pi(\cdot)\) 是投影函数，\(P_j\) 是第 \(j\) 个角点的世界坐标。</p>
+        </li>
+    </ol>
+
+    <div class="warning-box">
+        <strong>注意事项：</strong> 双目相机一旦完成标定，两相机之间的相对位置<strong>必须保持固定</strong>。任何微小的位移或震动都会导致标定失效，需要重新标定。
+    </div>
+
+    <h3>1.5 标定结果参数一览</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>参数类型</th>
+                <th>符号</th>
+                <th>含义</th>
+                <th>典型维度</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>左相机内参</td>
+                <td>\(K_l\)</td>
+                <td>左相机焦距、主点</td>
+                <td>3×3 矩阵</td>
+            </tr>
+            <tr>
+                <td>右相机内参</td>
+                <td>\(K_r\)</td>
+                <td>右相机焦距、主点</td>
+                <td>3×3 矩阵</td>
+            </tr>
+            <tr>
+                <td>左相机畸变</td>
+                <td>\(D_l\)</td>
+                <td>径向 + 切向畸变系数</td>
+                <td>5×1 或 8×1 向量</td>
+            </tr>
+            <tr>
+                <td>右相机畸变</td>
+                <td>\(D_r\)</td>
+                <td>径向 + 切向畸变系数</td>
+                <td>5×1 或 8×1 向量</td>
+            </tr>
+            <tr>
+                <td>旋转矩阵</td>
+                <td>\(R\)</td>
+                <td>右相机相对于左相机的旋转</td>
+                <td>3×3 矩阵</td>
+            </tr>
+            <tr>
+                <td>平移向量</td>
+                <td>\(T\)</td>
+                <td>右相机相对于左相机的平移（即基线）</td>
+                <td>3×1 向量</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ==================== 第二部分：极线校正 ==================== -->
+    <h2>第二部分：极线校正（Epipolar Rectification）</h2>
+
+    <div class="highlight-box">
+        <strong>极线校正的目的：</strong> 将左右图像进行几何变换，使两幅图像的<strong>极线（Epipolar Line）</strong>变为水平且对齐。这样，左图中任意一点在右图中的匹配点<strong>必定位于同一行</strong>，将二维匹配搜索降为一维搜索，极大降低计算复杂度。
+    </div>
+
+    <h3>2.1 极线几何基础</h3>
+    <p>在未校正的双目系统中，左右相机的成像平面通常不在同一平面上。对于左图中的一点 \(p_l\)，其在右图中的对应点 \(p_r\) 并不在同一行，而是位于一条称为<strong>极线</strong>的直线上。</p>
+
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('before')">校正前</button>
+            <button class="tab-btn" onclick="switchTab('after')">校正后</button>
+        </div>
+        <div id="before" class="tab-content active">
+            <div class="diagram-container">
+                <svg viewBox="0 0 600 350" xmlns="http://www.w3.org/2000/svg">
+                    <!-- 左相机 -->
+                    <g transform="translate(100, 280)">
+                        <circle cx="0" cy="0" r="6" fill="#2c3e50"/>
+                        <text x="-15" y="20" class="svg-text">O_l</text>
+                        <!-- 左成像平面（倾斜） -->
+                        <line x1="-40" y1="-80" x2="40" y2="-100" stroke="#999" stroke-width="2"/>
+                        <text x="50" y="-85" class="svg-text" fill="#777">左成像面</text>
+                    </g>
+
+                    <!-- 右相机 -->
+                    <g transform="translate(400, 260)">
+                        <circle cx="0" cy="0" r="6" fill="#2c3e50"/>
+                        <text x="10" y="20" class="svg-text">O_r</text>
+                        <!-- 右成像平面（倾斜） -->
+                        <line x1="-40" y1="-90" x2="40" y2="-70" stroke="#999" stroke-width="2"/>
+                        <text x="50" y="-85" class="svg-text" fill="#777">右成像面</text>
+                    </g>
+
+                    <!-- 物体点 P -->
+                    <circle cx="280" cy="80" r="6" fill="#e74c3c"/>
+                    <text x="290" y="75" class="svg-text" fill="#e74c3c">P</text>
+
+                    <!-- 投影线 -->
+                    <line x1="100" y1="280" x2="280" y2="80" stroke="#3498db" stroke-width="1.5" stroke-dasharray="4,4"/>
+                    <line x1="400" y1="260" x2="280" y2="80" stroke="#3498db" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+                    <!-- 左成像点 -->
+                    <circle cx="145" cy="195" r="4" fill="#3498db"/>
+                    <text x="150" y="190" class="svg-text" fill="#3498db">p_l</text>
+
+                    <!-- 右成像点 -->
+                    <circle cx="355" cy="185" r="4" fill="#3498db"/>
+                    <text x="360" y="180" class="svg-text" fill="#3498db">p_r</text>
+
+                    <!-- 极线示意 -->
+                    <line x1="310" y1="175" x2="400" y2="195" stroke="#e67e22" stroke-width="2" stroke-dasharray="5,3"/>
+                    <text x="340" y="165" class="svg-text" fill="#e67e22">极线（倾斜）</text>
+
+                    <!-- 基线 -->
+                    <line x1="100" y1="280" x2="400" y2="260" stroke="#555" stroke-width="1.5" stroke-dasharray="3,3"/>
+                    <text x="230" y="290" class="svg-text">基线 B</text>
+                </svg>
+            </div>
+            <p><strong>问题：</strong> 匹配点不在同一行，搜索空间为整条倾斜的极线，计算复杂。</p>
+        </div>
+        <div id="after" class="tab-content">
+            <div class="diagram-container">
+                <svg viewBox="0 0 600 350" xmlns="http://www.w3.org/2000/svg">
+                    <!-- 左相机 -->
+                    <g transform="translate(100, 280)">
+                        <circle cx="0" cy="0" r="6" fill="#2c3e50"/>
+                        <text x="-15" y="20" class="svg-text">O_l</text>
+                        <!-- 左成像平面（水平） -->
+                        <line x1="60" y1="180" x2="240" y2="180" stroke="#27ae60" stroke-width="2"/>
+                        <text x="250" y="185" class="svg-text" fill="#27ae60">左成像面</text>
+                    </g>
+
+                    <!-- 右相机 -->
+                    <g transform="translate(400, 280)">
+                        <circle cx="0" cy="0" r="6" fill="#2c3e50"/>
+                        <text x="10" y="20" class="svg-text">O_r</text>
+                        <!-- 右成像平面（水平，与左对齐） -->
+                        <line x1="-40" y1="180" x2="140" y2="180" stroke="#27ae60" stroke-width="2"/>
+                        <text x="150" y="185" class="svg-text" fill="#27ae60">右成像面</text>
+                    </g>
+
+                    <!-- 物体点 P -->
+                    <circle cx="250" cy="80" r="6" fill="#e74c3c"/>
+                    <text x="260" y="75" class="svg-text" fill="#e74c3c">P</text>
+
+                    <!-- 投影线 -->
+                    <line x1="100" y1="280" x2="250" y2="80" stroke="#3498db" stroke-width="1.5" stroke-dasharray="4,4"/>
+                    <line x1="400" y1="280" x2="250" y2="80" stroke="#3498db" stroke-width="1.5" stroke-dasharray="4,4"/>
+
+                    <!-- 左成像点 -->
+                    <circle cx="175" cy="180" r="4" fill="#3498db"/>
+                    <text x="175" y="170" class="svg-text" fill="#3498db">p_l</text>
+
+                    <!-- 右成像点 -->
+                    <circle cx="325" cy="180" r="4" fill="#3498db"/>
+                    <text x="325" y="170" class="svg-text" fill="#3498db">p_r</text>
+
+                    <!-- 极线示意（水平） -->
+                    <line x1="160" y1="190" x2="340" y2="190" stroke="#e67e22" stroke-width="2" stroke-dasharray="5,3"/>
+                    <text x="240" y="210" class="svg-text" fill="#e67e22">极线（水平对齐）</text>
+
+                    <!-- 基线 -->
+                    <line x1="100" y1="280" x2="400" y2="280" stroke="#555" stroke-width="1.5" stroke-dasharray="3,3"/>
+                    <text x="230" y="295" class="svg-text">基线 B（水平）</text>
+                </svg>
+            </div>
+            <p><strong>效果：</strong> 匹配点严格位于同一水平线上，搜索空间从二维降为一维，只需在同一行搜索即可。</p>
+        </div>
+    </div>
+
+    <h3>2.2 极线校正的数学原理</h3>
+    <p>极线校正的本质是找到两个<strong>单应性变换（Homography）</strong> \(H_l\) 和 \(H_r\)，分别作用于左右图像，使得变换后的图像满足：</p>
+    <ul>
+        <li>左右成像平面<strong>共面</strong>（coplanar）</li>
+        <li>成像平面与基线<strong>平行</strong></li>
+        <li>图像行<strong>对齐</strong>（同一行对应相同的极线）</li>
+    </ul>
+
+    <p>校正后的新相机坐标系中，左右相机的投影矩阵变为：</p>
+    <div class="formula-box">
+        $$ P_l^{rect} = K \cdot [I | 0], \quad P_r^{rect} = K \cdot [I | -T_{rect}] $$
+    </div>
+    <p>其中 \(T_{rect} = [B, 0, 0]^T\)，即基线完全沿 X 轴方向，两相机光轴平行。</p>
+
+    <h3>2.3 极线校正的完整流程</h3>
+    <ol class="step-list">
+        <li>
+            <strong>输入标定参数</strong>
+            <p>读取双目标定结果：\(K_l, K_r, D_l, D_r, R, T\)。</p>
+        </li>
+        <li>
+            <strong>计算校正变换</strong>
+            <p>使用 <code>stereoRectify()</code>（OpenCV）等函数，计算左右图像的校正旋转矩阵 \(R_l, R_r\) 和投影矩阵 \(P_l, P_r\)。核心思想是：</p>
+            <ul>
+                <li>将基线旋转到 X 轴方向</li>
+                <li>使两相机的成像平面共面且平行于基线</li>
+                <li>通常采用<strong>Bouguet 算法</strong>，在保持图像重叠区域最大的前提下最小化图像畸变</li>
+            </ul>
+        </li>
+        <li>
+            <strong>计算单应性映射</strong>
+            <p>对每个像素位置 \((u, v)\)，计算其在校正后图像中的新位置。这通过组合内参、旋转和投影矩阵得到映射关系：</p>
+            <div class="formula-box">
+                $$ \begin{bmatrix} u' \\ v' \\ 1 \end{bmatrix} \sim H \cdot \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}, \quad H = K_{rect} \cdot R_{rect} \cdot K^{-1} $$
+            </div>
+        </li>
+        <li>
+            <strong>图像重映射（Remapping）</strong>
+            <p>使用 <code>initUndistortRectifyMap()</code> 和 <code>remap()</code> 对原始图像进行畸变矫正 + 极线校正。这一步同时完成：</p>
+            <ul>
+                <li>去除镜头畸变（使用 \(D_l, D_r\)）</li>
+                <li>应用极线校正变换（使用 \(H_l, H_r\)）</li>
+            </ul>
+        </li>
+        <li>
+            <strong>验证校正效果</strong>
+            <p>在校正后的左右图像上，检查同一行的特征点是否严格水平对齐。常用方法是在左右图像上画水平线，观察对应特征点是否落在同一条线上。</p>
+        </li>
+    </ol>
+
+    <h3>2.4 校正前后的对比</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>对比项</th>
+                <th>校正前</th>
+                <th>校正后</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>极线形状</td>
+                <td>倾斜直线（不同行斜率不同）</td>
+                <td>水平直线，左右图像严格对齐</td>
+            </tr>
+            <tr>
+                <td>匹配搜索空间</td>
+                <td>二维（需沿倾斜极线搜索）</td>
+                <td>一维（只需在同一行搜索）</td>
+            </tr>
+            <tr>
+                <td>视差方向</td>
+                <td>二维向量</td>
+                <td>仅水平方向（x 轴）</td>
+            </tr>
+            <tr>
+                <td>视差计算公式</td>
+                <td>复杂，需考虑极线几何</td>
+                <td>简单：\(d = x_l - x_r\)</td>
+            </tr>
+            <tr>
+                <td>深度计算公式</td>
+                <td>需使用基础矩阵</td>
+                <td>直接使用 \(Z = fB/d\)</td>
+            </tr>
+            <tr>
+                <td>图像形变</td>
+                <td>原始图像，无额外形变</td>
+                <td>存在透视变换导致的拉伸/压缩</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="warning-box">
+        <strong>校正的代价：</strong> 极线校正会对图像进行透视变换，导致图像边缘出现<strong>黑边（无效区域）</strong>，且图像内容会有一定程度的拉伸或压缩。因此在实际应用中需要在"校正质量"和"有效视场"之间做权衡。
+    </div>
+
+    <h3>2.5 完整处理流水线</h3>
+    <div class="diagram-container">
+        <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="flow-arrow" markerWidth="12" markerHeight="8" refX="0" refY="4" orient="auto">
+                    <polygon points="0 0, 12 4, 0 8" fill="#555"/>
+                </marker>
+            </defs>
+
+            <!-- 步骤框 -->
+            <g font-family="Arial" font-size="14">
+                <!-- 采集 -->
+                <rect x="20" y="60" width="120" height="80" fill="#e8f4fc" stroke="#3498db" stroke-width="2" rx="8"/>
+                <text x="80" y="95" text-anchor="middle" fill="#2c3e50">采集图像对</text>
+                <text x="80" y="120" text-anchor="middle" fill="#2c3e50" font-size="12">（棋盘格）</text>
+
+                <!-- 标定 -->
+                <rect x="180" y="60" width="120" height="80" fill="#fef5e7" stroke="#e67e22" stroke-width="2" rx="8"/>
+                <text x="240" y="95" text-anchor="middle" fill="#2c3e50">双目标定</text>
+                <text x="240" y="120" text-anchor="middle" fill="#2c3e50" font-size="12">（求内参、外参）</text>
+
+                <!-- 校正 -->
+                <rect x="340" y="60" width="120" height="80" fill="#e8f8e8" stroke="#27ae60" stroke-width="2" rx="8"/>
+                <text x="400" y="95" text-anchor="middle" fill="#2c3e50">极线校正</text>
+                <text x="400" y="120" text-anchor="middle" fill="#2c3e50" font-size="12">（计算映射）</text>
+
+                <!-- 匹配 -->
+                <rect x="500" y="60" width="120" height="80" fill="#f9e8f8" stroke="#9b59b6" stroke-width="2" rx="8"/>
+                <text x="560" y="95" text-anchor="middle" fill="#2c3e50">立体匹配</text>
+                <text x="560" y="120" text-anchor="middle" fill="#2c3e50" font-size="12">（SGBM/BM）</text>
+
+                <!-- 深度 -->
+                <rect x="660" y="60" width="120" height="80" fill="#fdedec" stroke="#e74c3c" stroke-width="2" rx="8"/>
+                <text x="720" y="95" text-anchor="middle" fill="#2c3e50">深度计算</text>
+                <text x="720" y="120" text-anchor="middle" fill="#2c3e50" font-size="12">（Z = fB/d）</text>
+
+                <!-- 箭头 -->
+                <line x1="140" y1="100" x2="180" y2="100" stroke="#555" stroke-width="2" marker-end="url(#flow-arrow)"/>
+                <line x1="300" y1="100" x2="340" y2="100" stroke="#555" stroke-width="2" marker-end="url(#flow-arrow)"/>
+                <line x1="460" y1="100" x2="500" y2="100" stroke="#555" stroke-width="2" marker-end="url(#flow-arrow)"/>
+                <line x1="620" y1="100" x2="660" y2="100" stroke="#555" stroke-width="2" marker-end="url(#flow-arrow)"/>
+            </g>
+        </svg>
+    </div>
+
+    <footer>
+        <p>Generated for Educational Purpose | Stereo Camera Calibration &amp; Rectification</p>
+    </footer>
+</div>
+
+<script>
+    function switchTab(tabId) {
+        // 隐藏所有内容
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        // 取消所有按钮激活状态
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        // 激活目标
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
+
+</body>
+</html>

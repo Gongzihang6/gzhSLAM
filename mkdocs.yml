@@ -105,16 +105,20 @@ nav:
     - paper:
           - 3DGS:
                 - paper/3DGS/3DGS.md
-                - paper/3DGS/4D-Gaussian-Splatting-SLAM.md  
+                - paper/3DGS/4D-Gaussian-Splatting-SLAM.md
           - DLWM:
+                - paper/DLWM/DLWM.md
+                - paper/DLWM/GaussianFormer.md
+                - 3D-Camera-Ray-Embedding: paper/DLWM/新建 Markdown File.md
+                - stage1预训练方案: paper/DLWM/stage1预训练方案.md
+                - stage1训练总结: paper/DLWM/stage1训练总结.md
+                - stage2训练总结: paper/DLWM/stage2训练总结.md
+                - 智驾端到端模型预训练方案: paper/DLWM/智驾端到端模型预训练方案.md
                 - code:
                       - paper/DLWM/code/dlwm_loss.md
                       - paper/DLWM/code/lt_dataset.md
                       - paper/DLWM/code/render_head.md
                       - paper/DLWM/code/semantic_depth_rasterizer.md
-                - paper/DLWM/GaussianFormer.md
-                - paper/DLWM/DLWM.md
-                - paper/DLWM/GaussianWorld.md
           - FAST-LIO2:
                 - paper/FAST-LIO2/代码.md
                 - paper/FAST-LIO2/论文精读.md
@@ -124,7 +128,38 @@ nav:
           - BEVFusion:
                 - paper/BEVFusion/BEVFusion.md
                 - paper/BEVFusion/map_pretrain_flowchart.md
-                - paper/BEVFusion/map_pretrain_pipline.md
+                - paper/BEVFusion/map_pretrain_pipeline.md
+                - paper/BEVFusion/GAUSSIAN_LOSS.md
+                - paper/BEVFusion/复盘.md
+          - BEVCalib:
+                - paper/BEVCalib/BEVCalib.md
+          - BEVFormer:
+                - paper/BEVFormer/BEVFormer.md
+          - BEVWorld:
+                - paper/BEVWorld/BEVWorld.md
+          - Occ:
+                - paper/Occ/OccFormer.md
+                - paper/Occ/OccWorld.md
+                - paper/Occ/SurroundOcc.md
+                - paper/Occ/GaussianWorld.md
+          - UniAD:
+                - paper/UniAD/UniAD.md
+          - streamPETR:
+                - paper/streamPETR/streamPETR.md
+          - MV2DFusion:
+                - paper/MV2DFusion/MV2DFusion原理.md
+          - DETR:
+                - paper/DETR/DETR.md
+          - DINOv3:
+                - paper/DINOv3/DINOv3.md
+          - DepthAnything3:
+                - paper/DepthAnything3/DA3.md
+          - D4RT:
+                - paper/D4RT/D4RT.md
+          - Uni3R:
+                - paper/Uni3R/Uni3R.md
+          - Diffusion-Policy:
+                - Diffusion-Policy: paper/Diffusion-Policy/新建 Markdown File.md
           - point_yolo:
                 - paper/point_yolo/point_yolo.md
           - VGGT:
@@ -134,9 +169,16 @@ nav:
                 - paper/VINS-Mono/VINS-Mono.md
           - ORB-SLAM:
                 - paper/ORB-SLAM/ORB-SLAM.md
+          - DVLC:
+                - paper/DVLC/DVLC.md
     - SLAM面经:
           - SLAM面经/SLAM面经1.md
           - SLAM面经/视觉SLAM.md
+          - SLAM面经/SLAM如何处理动态物体.md
+          - C++:
+                - SLAM面经/C++/C++面经1.md
+    - 自动驾驶面经:
+          - 自动驾驶面经/BEV基础.md
     - 其他:
           - 其他/矩阵分解.md
           - 其他/矩阵相似变换的意义.md
@@ -145,6 +187,7 @@ nav:
           - 其他/Cholesky分解.md
           - 其他/cvparallel_for_并行.md
           - 其他/Lidar_cam_calibration.md
+          - 其他/Deformable-Attention.md
           - 其他/点云描述符/Scan-Context.md
 # 右上角展示GitHub仓库
 repo_url: https://github.com/Gongzihang6/gzhSLAM
