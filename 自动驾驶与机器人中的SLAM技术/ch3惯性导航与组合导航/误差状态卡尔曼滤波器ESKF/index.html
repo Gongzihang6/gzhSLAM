@@ -1,0 +1,6543 @@
+<!DOCTYPE html><html lang="zh" class="no-js"><head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+        <meta name="author" content="Gongzihang6">
+      
+      
+        <link rel="canonical" href="https://github.com/Gongzihang6/gzhSLAM/%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6%E4%B8%8E%E6%9C%BA%E5%99%A8%E4%BA%BA%E4%B8%AD%E7%9A%84SLAM%E6%8A%80%E6%9C%AF/ch3%E6%83%AF%E6%80%A7%E5%AF%BC%E8%88%AA%E4%B8%8E%E7%BB%84%E5%90%88%E5%AF%BC%E8%88%AA/%E8%AF%AF%E5%B7%AE%E7%8A%B6%E6%80%81%E5%8D%A1%E5%B0%94%E6%9B%BC%E6%BB%A4%E6%B3%A2%E5%99%A8ESKF/">
+      
+      
+        <link rel="prev" href="../IMU%E7%9A%84%E9%9D%99%E6%AD%A2%E5%88%9D%E5%A7%8B%E5%8C%96/">
+      
+      
+        <link rel="next" href="../../ch5%E5%9F%BA%E7%A1%80%E7%82%B9%E4%BA%91%E5%A4%84%E7%90%86/%E6%9C%80%E8%BF%91%E9%82%BB%E9%97%AE%E9%A2%98/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>误差状态卡尔曼滤波器的推导和理解 - SLAM学习之旅</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  <link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"><script src="../../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="grey" data-md-color-accent="purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#_1" class="md-skip">
+          跳转至
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="页眉">
+    <a href="../../.." title="SLAM学习之旅" class="md-header__button md-logo" aria-label="SLAM学习之旅" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            SLAM学习之旅
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              误差状态卡尔曼滤波器的推导和理解
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="grey" data-md-color-accent="purple" aria-label="Switch to dark mode" type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"></path></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="grey" data-md-color-accent="lime" aria-label="Switch to light mode" type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden="">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"></path></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="搜索" placeholder="搜索" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required="">
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+      </label>
+      <nav class="md-search__options" aria-label="查找">
+        
+        <button type="reset" class="md-search__icon md-icon" title="清空当前内容" aria-label="清空当前内容" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix="">
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            正在初始化搜索引擎
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Gongzihang6/gzhSLAM" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    Gongzihang6/gzhSLAM
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="标签" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  首页
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch2%E5%88%9D%E5%A7%8Bslam/%E5%88%9D%E8%AF%86SLAM/" class="md-tabs__link">
+          
+  
+  
+  视觉SLAM十四讲
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../ch2%E5%9F%BA%E7%A1%80%E6%95%B0%E5%AD%A6%E7%9F%A5%E8%AF%86%E5%9B%9E%E9%A1%BE/%E5%8D%A1%E5%B0%94%E6%9B%BC%E6%BB%A4%E6%B3%A2%E5%99%A8%E7%9A%84%E5%90%84%E7%A7%8D%E6%8E%A8%E5%AF%BC/" class="md-tabs__link">
+          
+  
+  
+  自动驾驶与机器人中的SLAM技术
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../paper/3DGS/3DGS/" class="md-tabs__link">
+          
+  
+  
+  paper
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../SLAM%E9%9D%A2%E7%BB%8F/SLAM%E9%9D%A2%E7%BB%8F1/" class="md-tabs__link">
+          
+  
+  
+  SLAM面经
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6%E9%9D%A2%E7%BB%8F/BEV%E5%9F%BA%E7%A1%80/" class="md-tabs__link">
+          
+  
+  
+  自动驾驶面经
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../%E5%85%B6%E4%BB%96/%E7%9F%A9%E9%98%B5%E5%88%86%E8%A7%A3/" class="md-tabs__link">
+          
+  
+  
+  其他
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="导航栏" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="SLAM学习之旅" class="md-nav__button md-logo" aria-label="SLAM学习之旅" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+
+    </a>
+    SLAM学习之旅
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Gongzihang6/gzhSLAM" title="前往仓库" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+  </div>
+  <div class="md-source__repository">
+    Gongzihang6/gzhSLAM
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix="">
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    首页
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2">
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视觉SLAM十四讲
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    视觉SLAM十四讲
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_1">
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第2讲-初识SLAM
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第2讲-初识SLAM
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch2%E5%88%9D%E5%A7%8Bslam/%E5%88%9D%E8%AF%86SLAM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    初识SLAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_2">
+        
+          
+          <label class="md-nav__link" for="__nav_2_2" id="__nav_2_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第4讲-李群与李代数
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第4讲-李群与李代数
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch4%E6%9D%8E%E7%BE%A4%E4%B8%8E%E6%9D%8E%E4%BB%A3%E6%95%B0/%E6%9D%8E%E7%BE%A4%E4%B8%8E%E6%9D%8E%E4%BB%A3%E6%95%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    李群与李代数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch4%E6%9D%8E%E7%BE%A4%E4%B8%8E%E6%9D%8E%E4%BB%A3%E6%95%B0/%E5%B7%A6%E6%89%B0%E5%8A%A8%E5%92%8C%E5%8F%B3%E6%89%B0%E5%8A%A8%E7%9A%84%E5%8C%BA%E5%88%AB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    左扰动和右扰动的区别
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_3">
+        
+          
+          <label class="md-nav__link" for="__nav_2_3" id="__nav_2_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第6讲-非线性优化
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第6讲-非线性优化
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch6%E9%9D%9E%E7%BA%BF%E6%80%A7%E4%BC%98%E5%8C%96/%E9%9D%9E%E7%BA%BF%E6%80%A7%E6%9C%80%E5%B0%8F%E4%BA%8C%E4%B9%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    非线性最小二乘
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch6%E9%9D%9E%E7%BA%BF%E6%80%A7%E4%BC%98%E5%8C%96/%E9%AB%98%E6%96%AF%E7%89%9B%E9%A1%BF%E6%B3%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    高斯牛顿法
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch6%E9%9D%9E%E7%BA%BF%E6%80%A7%E4%BC%98%E5%8C%96/LM%E6%96%B9%E6%B3%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    列文伯格-马夸尔特方法
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_4">
+        
+          
+          <label class="md-nav__link" for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第7讲-视觉里程计1
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第7讲-视觉里程计1
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch7%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A11/%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视觉里程计 1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch7%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A11/ICP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D-3D：ICP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch7%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A11/%E7%82%B9%E4%BA%91%E5%85%B3%E9%94%AE%E7%82%B9%E4%B8%8E%E7%89%B9%E5%BE%81%E6%8F%8F%E8%BF%B0%E5%AD%90/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D 点云关键点
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_5">
+        
+          
+          <label class="md-nav__link" for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第8讲-视觉里程计2
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第8讲-视觉里程计2
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch8%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A12/%E7%9B%B4%E6%8E%A5%E6%B3%95/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    直接法
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_6">
+        
+          
+          <label class="md-nav__link" for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第9讲-后端1
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第9讲-后端1
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch9%E5%90%8E%E7%AB%AF1/%E6%A6%82%E8%BF%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    概述
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch9%E5%90%8E%E7%AB%AF1/BA%E4%B8%8E%E5%9B%BE%E4%BC%98%E5%8C%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BA与图优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_7">
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第10讲-后端2
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第10讲-后端2
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch10%E5%90%8E%E7%AB%AF2/%E4%BD%8D%E5%A7%BF%E5%9B%BE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    位姿图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_8">
+        
+          
+          <label class="md-nav__link" for="__nav_2_8" id="__nav_2_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第13讲-实践SLAM系统
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第13讲-实践SLAM系统
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch13%E5%AE%9E%E8%B7%B5SLAM%E7%B3%BB%E7%BB%9F/C%2B%2B%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E6%9C%BA%E5%88%B6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++智能指针
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/ch13%E5%AE%9E%E8%B7%B5SLAM%E7%B3%BB%E7%BB%9F/cvcalcOpticalFlowPyrLK%E5%87%BD%E6%95%B0%E8%AF%A6%E8%A7%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cv::calcOpticalFlowPyrLK 函数详解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_9">
+        
+          
+          <label class="md-nav__link" for="__nav_2_9" id="__nav_2_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    课后习题
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    课后习题
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch03-%E4%B8%89%E7%BB%B4%E7%A9%BA%E9%97%B4%E5%88%9A%E4%BD%93%E8%BF%90%E5%8A%A8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch03-三维空间刚体运动
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch04-%E6%9D%8E%E7%BE%A4%E4%B8%8E%E6%9D%8E%E4%BB%A3%E6%95%B0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch04-李群与李代数
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch05-%E7%9B%B8%E6%9C%BA%E4%B8%8E%E5%9B%BE%E5%83%8F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch05-相机与图像
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch06-%E9%9D%9E%E7%BA%BF%E6%80%A7%E4%BC%98%E5%8C%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch06-非线性优化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%A7%86%E8%A7%89SLAM%E5%8D%81%E5%9B%9B%E8%AE%B2/%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch07-%E8%A7%86%E8%A7%89%E9%87%8C%E7%A8%8B%E8%AE%A11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch07-视觉里程计1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked="">
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    自动驾驶与机器人中的SLAM技术
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    自动驾驶与机器人中的SLAM技术
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_1">
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第二章-基础数学知识回顾
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第二章-基础数学知识回顾
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch2%E5%9F%BA%E7%A1%80%E6%95%B0%E5%AD%A6%E7%9F%A5%E8%AF%86%E5%9B%9E%E9%A1%BE/%E5%8D%A1%E5%B0%94%E6%9B%BC%E6%BB%A4%E6%B3%A2%E5%99%A8%E7%9A%84%E5%90%84%E7%A7%8D%E6%8E%A8%E5%AF%BC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    卡尔曼滤波器的各种推导
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch2%E5%9F%BA%E7%A1%80%E6%95%B0%E5%AD%A6%E7%9F%A5%E8%AF%86%E5%9B%9E%E9%A1%BE/%E6%97%8B%E8%BD%AC%E7%9A%84%E8%A1%A8%E7%A4%BA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    旋转的表示
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked="">
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第三章-惯性导航与组合导航
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第三章-惯性导航与组合导航
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../IMU%E8%BF%90%E5%8A%A8%E5%AD%A6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMU 运动学
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../IMU%E7%9A%84%E9%9D%99%E6%AD%A2%E5%88%9D%E5%A7%8B%E5%8C%96/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IMU的静止初始化
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    误差状态卡尔曼滤波器的推导和理解
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    误差状态卡尔曼滤波器的推导和理解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#eskf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的数学推导
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ESKF 的数学推导">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        误差状态的旋转项
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        误差状态的速度项
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        离散时间的 ESKF 运动方程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的运动过程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的更新过程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的误差状态后续处理
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_3">
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第五章-基础点云处理
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第五章-基础点云处理
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch5%E5%9F%BA%E7%A1%80%E7%82%B9%E4%BA%91%E5%A4%84%E7%90%86/%E6%9C%80%E8%BF%91%E9%82%BB%E9%97%AE%E9%A2%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    最近邻问题
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4">
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第七章-3DSLAM
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第七章-3DSLAM
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch7-3DSLAM/%E6%9D%BE%E8%80%A6%E5%90%88LIO%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    松耦合LIO系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5">
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    第八章-紧耦合LIO系统
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    第八章-紧耦合LIO系统
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch8%E7%B4%A7%E8%80%A6%E5%90%88LIO%E7%B3%BB%E7%BB%9F/%E5%9F%BA%E4%BA%8EIEKF%E7%9A%84LIO%E7%B3%BB%E7%BB%9F/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    基于 IEKF 的 LIO 系统
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch8%E7%B4%A7%E8%80%A6%E5%90%88LIO%E7%B3%BB%E7%BB%9F/%E7%B4%A7%E8%80%A6%E5%90%88%E7%9A%84%E5%8E%9F%E7%90%86%E4%B8%8E%E4%BC%98%E7%82%B9/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    紧耦合的原理与优点
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ch8%E7%B4%A7%E8%80%A6%E5%90%88LIO%E7%B3%BB%E7%BB%9F/%E7%B4%A7%E8%80%A6%E5%90%88IESKF%E4%B8%8E%E4%BC%98%E5%8C%96%E7%90%86%E8%AE%BA/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    紧耦合IESKF与优化理论
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6">
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    课后习题
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    课后习题
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../%E8%AF%BE%E5%90%8E%E4%B9%A0%E9%A2%98/ch073DSLAM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ch07-3DSLAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4">
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    paper
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    paper
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1">
+        
+          
+          <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3DGS
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    3DGS
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/3DGS/3DGS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D Gaussian Splatting for Real-Time Radiance Field Rendering
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/3DGS/4D-Gaussian-Splatting-SLAM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    4D Gaussian Splatting SLAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2">
+        
+          
+          <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DLWM
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DLWM
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/DLWM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DLWM：Dual Latent World Models enable Holistic Gaussian-centric Pre-training in Autonomous Driving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/GaussianFormer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GaussianFormer: Scence as Gaussians for Vision-Based 3D Semantic Occupancy Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/%E6%96%B0%E5%BB%BA%20Markdown%20File/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3D-Camera-Ray-Embedding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/stage1%E9%A2%84%E8%AE%AD%E7%BB%83%E6%96%B9%E6%A1%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stage1预训练方案
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/stage1%E8%AE%AD%E7%BB%83%E6%80%BB%E7%BB%93/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stage1训练总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/stage2%E8%AE%AD%E7%BB%83%E6%80%BB%E7%BB%93/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    stage2训练总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/%E6%99%BA%E9%A9%BE%E7%AB%AF%E5%88%B0%E7%AB%AF%E6%A8%A1%E5%9E%8B%E9%A2%84%E8%AE%AD%E7%BB%83%E6%96%B9%E6%A1%88/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    智驾端到端模型预训练方案
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_2_8">
+        
+          
+          <label class="md-nav__link" for="__nav_4_2_8" id="__nav_4_2_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    code
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_4_2_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_2_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    code
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/code/dlwm_loss/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    dlwm_loss
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/code/lt_dataset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    gaussian_perception/dataset/lt_dataset.py
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/code/render_head/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Render head
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DLWM/code/semantic_depth_rasterizer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    semantic_depth_rasterizer.py
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_3">
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAST-LIO2
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    FAST-LIO2
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/FAST-LIO2/%E4%BB%A3%E7%A0%81/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAST-LIO2框架源码学习
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/FAST-LIO2/%E8%AE%BA%E6%96%87%E7%B2%BE%E8%AF%BB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAST-LIO2: Fast Direct LiDAR-inertial Odometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4">
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAST-LIVO2
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    FAST-LIVO2
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/FAST-LIVO2/%E6%96%87%E7%8C%AE%E7%B2%BE%E8%AF%BB/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAST-LIVO2：Fast, Direct LiDAR-Inertial-Visual Odometry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/FAST-LIVO2/%E6%94%B9%E8%BF%9B%E8%AF%95%E9%AA%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    改进试验
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_5">
+        
+          
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVFusion
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    BEVFusion
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFusion/BEVFusion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVFusion: Multi-task Multi-Sensor Fusion with Unified Bird’s-Eye View Representation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFusion/map_pretrain_flowchart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Map Pretrain 完整训练链路 Mermaid 流程图
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFusion/map_pretrain_pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Map Pretrain (RoadBEVPretrain) 完整训练链路文档
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFusion/GAUSSIAN_LOSS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GAUSSIAN LOSS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFusion/%E5%A4%8D%E7%9B%98/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    复盘
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_6">
+        
+          
+          <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVCalib
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    BEVCalib
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVCalib/BEVCalib/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVCalib: Lidar-Camera Calibration via Geometry-Guided Bird’s-Eye View Representations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_7">
+        
+          
+          <label class="md-nav__link" for="__nav_4_7" id="__nav_4_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVFormer
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    BEVFormer
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVFormer/BEVFormer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVFormer: Learning Bird’s-Eye-View Representation from Multi-Camera Images via Spatiotemporal Transformers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_8">
+        
+          
+          <label class="md-nav__link" for="__nav_4_8" id="__nav_4_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVWorld
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    BEVWorld
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/BEVWorld/BEVWorld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEVWorld: A Multimodal World Simulator for Autonomous Driving via Scene-Level BEV Latents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_9">
+        
+          
+          <label class="md-nav__link" for="__nav_4_9" id="__nav_4_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Occ
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Occ
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Occ/OccFormer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OccFormer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Occ/OccWorld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OccWorld: Learning a 3D Occupancy World Model for Autonomous Driving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Occ/SurroundOcc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SurroundOcc: Multi-Camera 3D Occupancy Prediction for Autonomous Driving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Occ/GaussianWorld/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GaussianWorld: Gaussian World Model for Streaming 3D Occupancy Prediction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_10">
+        
+          
+          <label class="md-nav__link" for="__nav_4_10" id="__nav_4_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UniAD
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    UniAD
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/UniAD/UniAD/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Planning-oriented Autonomous Driving
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_11">
+        
+          
+          <label class="md-nav__link" for="__nav_4_11" id="__nav_4_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    streamPETR
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    streamPETR
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/streamPETR/streamPETR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exploring Object-Centric Temporal Modeling for Efficient Multi-View 3D Object Detection
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_12">
+        
+          
+          <label class="md-nav__link" for="__nav_4_12" id="__nav_4_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MV2DFusion
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    MV2DFusion
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/MV2DFusion/MV2DFusion%E5%8E%9F%E7%90%86/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MV2DFusion原理
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_13">
+        
+          
+          <label class="md-nav__link" for="__nav_4_13" id="__nav_4_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DETR
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DETR
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DETR/DETR/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DEFORMABLE DETR: DEFORMABLE TRANSFORMERS FOR END-TO-END OBJECT DETECTION
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_14">
+        
+          
+          <label class="md-nav__link" for="__nav_4_14" id="__nav_4_14_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DINOv3
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_14">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DINOv3
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DINOv3/DINOv3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DINOv3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_15">
+        
+          
+          <label class="md-nav__link" for="__nav_4_15" id="__nav_4_15_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DepthAnything3
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_15_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_15">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DepthAnything3
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DepthAnything3/DA3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Depth Anything 3: Recovering the Visual Space from Any Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_16">
+        
+          
+          <label class="md-nav__link" for="__nav_4_16" id="__nav_4_16_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    D4RT
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_16_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_16">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    D4RT
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/D4RT/D4RT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Efficiently Reconstructing Dynamic Scenes One D4RT at a Time
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_17">
+        
+          
+          <label class="md-nav__link" for="__nav_4_17" id="__nav_4_17_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Uni3R
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_17_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_17">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Uni3R
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Uni3R/Uni3R/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Uni3R: Unified 3D Reconstruction and Semantic Understanding via Generalizable Gaussian Splatting from Unposed Multi-View Images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_18">
+        
+          
+          <label class="md-nav__link" for="__nav_4_18" id="__nav_4_18_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diffusion-Policy
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_18_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_18">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Diffusion-Policy
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/Diffusion-Policy/%E6%96%B0%E5%BB%BA%20Markdown%20File/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diffusion-Policy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_19">
+        
+          
+          <label class="md-nav__link" for="__nav_4_19" id="__nav_4_19_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    point_yolo
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_19_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_19">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    point_yolo
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/point_yolo/point_yolo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Point yolo
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_20">
+        
+          
+          <label class="md-nav__link" for="__nav_4_20" id="__nav_4_20_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VGGT
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_20_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_20">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    VGGT
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/VGGT/VGGT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VGGT：Visual Geometry Grounder Transformer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/VGGT/VGGT_omega/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VGGT-\(\Omega\)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_21">
+        
+          
+          <label class="md-nav__link" for="__nav_4_21" id="__nav_4_21_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VINS-Mono
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_21_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_21">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    VINS-Mono
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/VINS-Mono/VINS-Mono/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimato
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_22">
+        
+          
+          <label class="md-nav__link" for="__nav_4_22" id="__nav_4_22_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ORB-SLAM
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_22_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_22">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ORB-SLAM
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/ORB-SLAM/ORB-SLAM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ORB-SLAM：视觉里程计的核心演进与全流程解析
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_23">
+        
+          
+          <label class="md-nav__link" for="__nav_4_23" id="__nav_4_23_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DVLC
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_23_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_23">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    DVLC
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../paper/DVLC/DVLC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    General, Single-shot, Target-less, and Automatic LiDAR-Camera Extrinsic Calibration Toolbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5">
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SLAM面经
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    SLAM面经
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../SLAM%E9%9D%A2%E7%BB%8F/SLAM%E9%9D%A2%E7%BB%8F1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SLAM 面试常见问题总结
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../SLAM%E9%9D%A2%E7%BB%8F/%E8%A7%86%E8%A7%89SLAM/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    视觉SLAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../SLAM%E9%9D%A2%E7%BB%8F/SLAM%E5%A6%82%E4%BD%95%E5%A4%84%E7%90%86%E5%8A%A8%E6%80%81%E7%89%A9%E4%BD%93/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SLAM如何处理动态物体
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4">
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    C++
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../SLAM%E9%9D%A2%E7%BB%8F/C%2B%2B/C%2B%2B%E9%9D%A2%E7%BB%8F1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    C++面经1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6">
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    自动驾驶面经
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    自动驾驶面经
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E8%87%AA%E5%8A%A8%E9%A9%BE%E9%A9%B6%E9%9D%A2%E7%BB%8F/BEV%E5%9F%BA%E7%A1%80/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BEV感知
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7">
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    其他
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    其他
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix="">
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/%E7%9F%A9%E9%98%B5%E5%88%86%E8%A7%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    矩阵分解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/%E7%9F%A9%E9%98%B5%E7%9B%B8%E4%BC%BC%E5%8F%98%E6%8D%A2%E7%9A%84%E6%84%8F%E4%B9%89/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    矩阵相似变换的意义
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/%E5%9B%9B%E5%85%83%E6%95%B0%E7%90%83%E9%9D%A2%E7%BA%BF%E6%80%A7%E6%8F%92%E5%80%BCslerp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spherical Linear Interpolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/%E5%9B%9B%E5%85%83%E6%95%B0%E8%BD%AC%E6%97%8B%E8%BD%AC%E7%9F%A9%E9%98%B5%E6%8E%A8%E5%AF%BC/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    四元数到旋转矩阵的推导
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/Cholesky%E5%88%86%E8%A7%A3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cholesky 分解
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/cvparallel_for_%E5%B9%B6%E8%A1%8C/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    OpenCV的cv::parallel_for_并行介绍
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/Lidar_cam_calibration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lidar和Camera外参标定算法研究
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/Deformable-Attention/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformable Attention
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../%E5%85%B6%E4%BB%96/%E7%82%B9%E4%BA%91%E6%8F%8F%E8%BF%B0%E7%AC%A6/Scan-Context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scan Context
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="目录">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      目录
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#eskf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的数学推导
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ESKF 的数学推导">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        误差状态的旋转项
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        误差状态的速度项
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        离散时间的 ESKF 运动方程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的运动过程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的更新过程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eskf_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ESKF 的误差状态后续处理
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+  
+                  
+
+
+  
+  
+
+
+<h1 id="_1">误差状态卡尔曼滤波器的推导和理解<a class="headerlink" href="#_1" title="Permanent link">¶</a></h1>
+<p>这里书中介绍定义了名义状态变量，真值，误差状态变量，其中 <strong>真值 = 名义状态变量+误差状态变量</strong>，名义状态变量就是根据 IMU 读数积分直接算出来的状态（这里不用考虑噪声误差等，因为会在误差状态变量中体现），然后推导计算误差状态变量的形式以及导数等，然后将误差作为卡尔曼滤波器的更新变量</p>
+<p>RTK 设备为我们提供了一个不太稳定的位姿观测源。我们可以将它视为定位滤波器的一种“观测”（也对应普通卡尔曼滤波器中的观测方程），而 IMU 则提供了运动方程（通过加速度和角速度推算车辆的位置和状态），所以这里我们把 IMU 视为运动模型，把 GNSS 观测视为观测模型，推导误差状态卡尔曼滤波器。</p>
+<h2 id="eskf">ESKF 的数学推导<a class="headerlink" href="#eskf" title="Permanent link">¶</a></h2>
+<p>设状态变量为</p>
+<div class="arithmatex">\[
+x = [p, v, R, b_g, b_a, g]^T
+\]</div>
+<p>所有变量都默认取下标 <span class="arithmatex">\(()_{WB}\)</span>，也就是车辆在世界坐标系下的状态。其中 <span class="arithmatex">\(p\)</span> 为平移，<span class="arithmatex">\(v\)</span> 为速度，<span class="arithmatex">\(R\)</span> 为旋转，<span class="arithmatex">\(b_g\)</span> 为陀螺仪零偏，<span class="arithmatex">\(b_a\)</span> 为加速度计零偏，<span class="arithmatex">\(g\)</span> 为重力加速度。</p>
+<p>将 IMU 测量值代入到 IMU 运动学方程中，可以得到状态变量在连续时间下的运动方程为：</p>
+<div class="arithmatex">\[
+\begin{align*}
+\dot{p} &amp;= v, \tag{2.a} \\
+\dot{v} &amp;= R(\tilde{a} - b_a - \eta_a) + g, \tag{2.b} \\
+\dot{R} &amp;= R(\tilde{\omega} - b_g - \eta_g)^{\wedge}, \tag{2.c} \\
+\dot{b}_g &amp;= \eta_{bg}, \tag{2.d} \\
+\dot{b}_a &amp;= \eta_{ba}, \tag{2.e} \\
+\dot{g} &amp;= 0. \tag{2.f}
+\end{align*}
+\]</div>
+<p>式（2.b）中，右侧是根据 IMU 的加速度计读数，推算出的车辆在世界坐标系下的真实加速度值，首先对 IMU 的原始读数（包含真实受力、零偏、白噪声），所以要减去零偏和白噪声，然后乘 <span class="arithmatex">\(R_{WB}\)</span> 变换到世界坐标系下，但是由于 IMU 本身会多测一个重力加速度（静止时读出反向的 <span class="arithmatex">\(g\)</span>），所以还需要再加上 <span class="arithmatex">\(g\)</span>（<span class="arithmatex">\(g\)</span> 是负值，加上就可以抵消这个分量）。</p>
+<p>为了在 EKF 的预测过程中对协方差进行预测，需要对该方程进行线性化。理论上，线性化的形式为：</p>
+<div class="arithmatex">\[
+x_{k+1}= f(x_k)+Fdx+w
+\]</div>
+<p>其中 <span class="arithmatex">\(F = \frac{\partial f}{\partial x(t)} \Big|_{x(t)}\)</span> 为雅可比系数矩阵，该矩阵由运动方程和各项状态变量的导数构成。</p>
+<p>这里会遇到一个非常现实的问题：</p>
+<p>一方面，<span class="arithmatex">\(F\)</span> 中需要计算旋转矩阵 <span class="arithmatex">\(R\)</span> 相对于某个扰动(<span class="arithmatex">\(\delta x\)</span>)的导数，但是在不引入张量的情况下，是无法表达矩阵对向量的导数的形式的，于是，传统算法往往会退一步，用欧拉角或者四元数的四个标量作为状态变量，但是这样就无法优雅的使用流形上的方法了；</p>
+<p>另一方面，如果考虑将惯性导航系统与卫星导航系统进行融合，那么 <span class="arithmatex">\(x\)</span> 中的平移变量就应该使用全局坐标系，这会使得 <span class="arithmatex">\(x\)</span> 中的数值变得很大，在有些场合超出浮点数的有效数字范围，这可能导致一些场景的运算失效，例如数值计算中的“大数吃小数”现象。</p>
+<p>于是，我们开始考虑，能否避免直接使用 <span class="arithmatex">\(x\)</span> 和 <span class="arithmatex">\(P\)</span> 来表达状态的均值和协方差，推导运动和观测方程呢？能否使用原先卡尔曼滤波器中的更新量来推导这两个方程？回忆卡尔曼滤波器中的观测部分：</p>
+<div class="arithmatex">\[
+x_k = x_{k, pred}+K_k \underbrace{(z_k-H_kx_{k, pred})}_{\text{更新量}}
+\]</div>
+<p>在流形意义下，右侧的更新量应该是位于切空间中的矢量，中间的加法应为流形与切空间指数映射的广义加法。为了避免前面提到的两个问题，我们选择将更新量（或者称为误差状态）视为滤波器的状态变量，来推导运动和观测模型，这就引出了误差状态卡尔曼滤波器。我们不直接预测和更新状态，而是对状态误差进行预测和更新，具体来说，IMU 运动方程（积分）给出粗略估计，误差状态卡尔曼滤波器预测这个粗略估计的偏差，然后粗略估计+偏差 = 更新后的状态。</p>
+<p>ESKF（Error State Kalman Filter）是许多传统的、现代的系统里都广泛使用的状态估计方法，既可以作为组合导航的滤波器，也可以用来实现 <strong>LIO（Lidar-Inertial Odometry）、VIO（Visual-Inertial Odometry）</strong> 等复杂系统。相比于传统的 KF，ESKF 的优点可以总结如下：</p>
+<p>1、在旋转的处理上，ESKF 的状态变量可以采用最小化的参数表达，也就是 <strong>使用三维变量（旋转矢量、李代数）来表达旋转的增量</strong>，该变量位于旋转矩阵流形的切空间中，而切空间是一个矢量空间；</p>
+<p>2、ESKF 总是在原点附近，离奇异点较远，数值方面更稳定，不会产生离工作点太远而导致线性化近似不够的问题；</p>
+<p>3、ESKF 的状态量（误差状态）是小量，其二阶变量相对来说可以忽略，同时，大多数雅可比矩阵在小量情况下变得非常简单，甚至可以用单位阵替代；</p>
+<p>4、误差状态的运动学相比原状态变量更小（小量的运动学），因此可以把更新部分归入原状态变量中；</p>
+<hr>
+<div class="admonition tip">
+<p class="admonition-title">Important</p>
+<p>在 ESKF 中，通常把原状态变量称为名义状态变量（Nominal State）（这里指的是 IMU 运动学积分结果），把 ESKF 里的状态变量称为误差状态变量（Error State）。名义状态变量和误差状态变量之和称为真值。把噪声的处理放到误差状态变量中，可以认为名义状态变量的方程是不含噪声的。（也就是 IMU 运动学方程积分过程中不考虑 IMU 的噪声，直接算就可以）</p>
+</div>
+<p>ESKF 的整体流程如下：当 IMU 测量数据到达时，把它积分后，放入名义状态变量中（得到粗略的状态变量 <span class="arithmatex">\([p, v, R, b_g, b_a, g]^T\)</span>）。由于这种做法没有考虑噪声，其结果自然会快速漂移，于是把误差部分作为误差变量。在运动过程中，名义状态随着 IMU 数据进行递推，误差状态则受到高斯噪声影响而变大。此时 ESKF 的误差状态的均值和协方差，会描述误差状态扩大的具体数值（视为高斯分布）。</p>
+<p>此外，ESKF 的更新过程需要依赖 IMU 以外的传感器观测。更新过程中，利用传感器数据，更新误差状态的后验均值与协方差；随后可以把这部分误差合入到名义状态变量中，并把 ESKF 置零，这样就完成了一次预测——更新的循环。</p>
+<p>下面我们来推导 ESKF 的两个方差：运动方程和状态方程。设 ESKF 的真值状态为 <span class="arithmatex">\(x_t = \begin{bmatrix} p_t, v_t, R_t, b_{gt}, b_{at}, g_t \end{bmatrix}^T\)</span>，下标 <span class="arithmatex">\(t\)</span> 表示 true，即真值状态，这个状态随时间改变，可以记作 <span class="arithmatex">\(x_t(t)\)</span>。</p>
+<p>在连续时间上，记 IMU 的读数为 <span class="arithmatex">\(\tilde{\omega},\tilde{a}\)</span>，那么根据 IMU 运动学积分，可以写出状态变量导数相对于观测量之间的关系式（<strong>真值的运动方程</strong>）：</p>
+<div class="arithmatex">\[
+\begin{align*}
+\dot{p}_t &amp;= v_t \tag{4.a} \\
+\dot{v}_t &amp;= R_t(\tilde{a} - b_{at} - \eta_a) + g_t,\tag{4.b} \\
+\dot{R}_t &amp;= R_t(\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} \tag{4.c} \\
+\dot{b}_{gt} &amp;= \eta_{bg} \tag{4.d} \\
+\dot{b}_{at} &amp;= \eta_{ba} \tag{4.e} \\
+\dot{g}_t &amp;= 0 \tag{4.f}
+\end{align*}
+\]</div>
+<p>其中 4.d 和 4.e 是我们前面介绍的 IMU 噪声模型中的零偏，零偏本身并不是高斯白噪声，但是我们认为零偏的变化是白噪声，也就是每个时刻零偏是变大还是变小、变多少是高斯分布的。这一系列公式描述了 IMU 运动模型的基本条件，方便后面推导误差状态变量关于时间的导数。</p>
+<p>下面推导误差状态方程，先定义误差状态变量为：</p>
+<div class="arithmatex">\[
+\begin{align*}
+p_t &amp;= p + \delta p \tag{5.a} \\
+v_t &amp;= v + \delta v \tag{5.b} \\
+R_t &amp;= R\delta R \text{ 或 } q_t = q\delta q \tag{5.c} \\
+b_{gt} &amp;= b_g + \delta b_g \tag{5.d} \\
+b_{at} &amp;= b_a + \delta b_a \tag{5.e} \\
+g_t &amp;= g + \delta g \tag{5.f}
+\end{align*}
+\]</div>
+<p>其中，不带下标的就是名义状态变量，带 <span class="arithmatex">\(\delta\)</span> 的就是误差状态变量，带下标 <span class="arithmatex">\(t\)</span> 的就是真值，这个方程描述了真值 = 名义状态变量+误差状态变量。<strong>名义状态变量的运动方程与真值相同（如公式（4）），只是不必考虑噪声，因为噪声我们在误差状态方程中考虑。</strong></p>
+<p>在误差状态方程，也就是式（5）中，我们在等式两侧同时对时间求导，得到对应的时间导数表达式为：</p>
+<div class="arithmatex">\[
+\begin{align*}
+\delta\dot{p} &amp;= \delta v \tag{6.a} \\
+\delta\dot{b}_g &amp;= \eta_g \tag{6.b} \\
+\delta\dot{b}_a &amp;= \eta_a \tag{6.c} \\
+\delta\dot{g} &amp;= 0 \tag{6.d}
+\end{align*}
+\]</div>
+<p>式（5.b）和式（5.c）由于和 <span class="arithmatex">\(\delta R\)</span> 有关系，形式稍微复杂一些，下面给出单独的推导过程。</p>
+<h3 id="_2">误差状态的旋转项<a class="headerlink" href="#_2" title="Permanent link">¶</a></h3>
+<p>对式（5.c）两侧求时间导数，可得：</p>
+<div class="arithmatex">\[
+\dot{R}_t = \dot{R}\mathrm{Exp}(\delta\theta) + R\dot{\mathrm{Exp}(\delta\theta)}, \\
+\underline{\underline{\text{4.c}}} \quad R_t (\tilde{\omega} - b_{gt} - \eta_g)^{\wedge}
+\]</div>
+<p>其中 <span class="arithmatex">\(\delta \theta\)</span> 为误差状态变量 <span class="arithmatex">\(\delta R\)</span> 对应的李代数。</p>
+<p>注意，式（4）右侧的 <span class="arithmatex">\(\dot{\text{Exp}(\delta \theta)}\)</span> 满足：</p>
+<div class="arithmatex">\[
+\dot{\mathrm{Exp}(\delta\theta)} = \mathrm{Exp}(\delta\theta)\delta\dot{\theta}^{\wedge}
+\]</div>
+<p>因此式（4）的 <strong>第一个式子</strong> 可以写成：</p>
+<div class="arithmatex">\[
+\dot{R}\mathrm{Exp}(\delta\theta) + R\dot{\mathrm{Exp}(\delta\theta)} = R(\tilde{\omega} - b_g)^{\wedge}\mathrm{Exp}(\delta\theta) + R\mathrm{Exp}(\delta\theta)\delta\dot{\theta}^{\wedge}
+\]</div>
+<p>这里 <span class="arithmatex">\(\dot{R}= R(\tilde{\omega} - b_g)^{\wedge}\)</span>，因为 <span class="arithmatex">\(R\)</span> 是 <strong>名义状态变量（只考虑零偏，不考虑噪声）</strong>，和真值 <span class="arithmatex">\(\dot{R_t}\)</span> 有所区别。</p>
+<p>式（4）的 <strong>第二个式子</strong> 可以写成：</p>
+<div class="arithmatex">\[
+R_t (\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} = R\mathrm{Exp}(\delta\theta) (\tilde{\omega} - b_{gt} - \eta_g)^{\wedge}
+\]</div>
+<p>这是因为 <span class="arithmatex">\(R_t = R\text{Exp}(\delta \theta)\)</span>，也就是真值 = 名义状态变量+误差状态变量</p>
+<p>比较式（6）和式（7）的右侧，它们相等，将 <span class="arithmatex">\(\delta \dot{\theta}^{\wedge}\)</span> 移到一侧，约掉两侧左边的 <span class="arithmatex">\(R\)</span>，整理类似项，得到：</p>
+<div class="arithmatex">\[
+\mathrm{Exp}(\delta\theta)\delta\dot{\theta}^{\wedge} = \mathrm{Exp}(\delta\theta) (\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} - (\tilde{\omega} - b_g)^{\wedge} \mathrm{Exp}(\delta\theta)
+\]</div>
+<p>注意，<span class="arithmatex">\(\text{Exp}(\delta \theta)\)</span> 本身是一个 <span class="arithmatex">\(SO(3)\)</span> 矩阵，利用 <span class="arithmatex">\(SO(3)\)</span> 上的伴随性质：</p>
+<div class="arithmatex">\[
+\phi^{\wedge}R = R(R^T\phi)^{\wedge}
+\]</div>
+<p>所以：<span class="arithmatex">\((\tilde{\omega}-b_g)^{\wedge}\text{Exp}(\delta \theta)=\text{Exp}(\delta \theta)(\text{Exp}(-\delta \theta)(\tilde{\omega}-b_g))^{\wedge}\)</span>，也就是将 <span class="arithmatex">\((\tilde{\omega}-b_g)\)</span> 看作 <span class="arithmatex">\(\phi\)</span>，将 <span class="arithmatex">\(\text{Exp}(\delta \theta)\)</span> 看作 <span class="arithmatex">\(R\)</span>。</p>
+<p>所以：</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\mathrm{Exp}(\delta\theta)\delta\dot{\theta}^{\wedge} &amp;= \mathrm{Exp}(\delta\theta) (\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} - \mathrm{Exp}(\delta\theta) (\mathrm{Exp}(-\delta\theta) (\tilde{\omega} - b_g))^{\wedge} \\
+&amp;= \mathrm{Exp}(\delta\theta) \left [(\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} - (\mathrm{Exp}(-\delta\theta) (\tilde{\omega} - b_g))^{\wedge}\right] \\
+&amp;\approx \mathrm{Exp}(\delta\theta) \left [(\tilde{\omega} - b_{gt} - \eta_g)^{\wedge} - ((\mathrm{I} - \delta\theta^{\wedge})(\tilde{\omega} - b_g))^{\wedge}\right] \\
+&amp;= \mathrm{Exp}(\delta\theta) \left [b_g - b_{gt} - \eta_g + \delta\theta^{\wedge}\tilde{\omega} - \delta\theta^{\wedge}b_g\right]^{\wedge} \\
+&amp;= \mathrm{Exp}(\delta\theta) \left [(-\tilde{\omega} + b_g)^{\wedge}\delta\theta - \delta b_g - \eta_g\right]^{\wedge}
+\end{aligned}
+\]</div>
+<p>第一个等式就是利用了 <span class="arithmatex">\(SO(3)\)</span> 上的伴随性质，第三个约等于是用来泰勒展开的一阶近似，第四个等号是直接乘法展开，第五个等式是用来外积交换要添加负号的性质。</p>
+<p>将式（10）两侧消除 <span class="arithmatex">\(\text{Exp}(\delta \theta)\)</span>，得到：</p>
+<div class="arithmatex">\[
+\delta\dot{\theta} \approx -(\tilde{\omega} - b_g)^{\wedge}\delta\theta - \delta b_g - \eta_g
+\]</div>
+<h3 id="_3">误差状态的速度项<a class="headerlink" href="#_3" title="Permanent link">¶</a></h3>
+<p>对式（5.b）（<span class="arithmatex">\(v_t = v+\delta v\)</span>）两侧求时间的导数，就可以得到 <span class="arithmatex">\(\delta \dot{v}\)</span> 的表达式。</p>
+<p>等式左侧为：</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\dot{v}_t &amp;= R_t(\tilde{a} - b_{at} - \eta_a) + g_t \\
+&amp;= R\mathrm{Exp}(\delta\theta)(\tilde{a} - b_a - \delta b_a - \eta_a) + g + \delta g \\
+&amp;\approx R(I + \delta\theta^{\wedge})(\tilde{a} - b_a - \delta b_a - \eta_a) + g + \delta g \\
+&amp;\approx R\tilde{a} - Rb_a - R\delta b_a - R\eta_a + R\delta\theta^{\wedge}\tilde{a} - R\delta\theta^{\wedge}b_a + g + \delta g \\
+&amp;= R\tilde{a} - Rb_a - R\delta b_a - R\eta_a - R\tilde{a}^{\wedge}\delta\theta + Rb_a^{\wedge}\delta\theta + g + \delta g
+\end{aligned}
+\]</div>
+<p>将带下标 <span class="arithmatex">\(t\)</span> 的真值，全部用名义状态变量+误差状态变量来代替。第二行到第三行，是指数的一阶近似；<strong>第三行到第四行，忽略了 <span class="arithmatex">\(\delta \theta^{\wedge}\)</span> 与 <span class="arithmatex">\(\delta b_a,\eta_a\)</span> 相乘的二阶小量。</strong></p>
+<p>等式右侧为：</p>
+<div class="arithmatex">\[
+\dot{v} + \delta \dot{v} = R(\tilde{a} - b_a) + g + \delta \dot{v}
+\]</div>
+<p>因为式（12）和式（13）相等，所以可以得到：</p>
+<div class="arithmatex">\[
+\delta \dot{v}=-R(\tilde{a}-b_a)^{\wedge}\delta \theta-R\delta b_a-R\eta_a+\delta g
+\]</div>
+<p>由于 <span class="arithmatex">\(\eta_a\)</span> 是加速度计测量的零均值白噪声，它乘以任意旋转矩阵之后，仍然是一个零均值白噪声，而且 <span class="arithmatex">\(R^TR = I\)</span>，<strong>容易证明其协方差矩阵也不变</strong>。所以，式（14）可以简化为：</p>
+<div class="arithmatex">\[
+\delta \dot{v}=-R(\tilde{a}-b_a)^{\wedge}\delta \theta-R\delta b_a-\eta_a+\delta g
+\]</div>
+<p>至此，总结起来，可以将 <strong>误差变量的运动方程</strong> 整理如下：</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\delta\dot{p} &amp;= \delta v, \\
+\delta\dot{v} &amp;= -R(\tilde{a} - b_a)^{\wedge}\delta\theta - R\delta b_a - \eta_a + \delta g, \\
+\delta\dot{\theta} &amp;= -(\tilde{\omega} - b_g)^{\wedge}\delta\theta - \delta b_g - \eta_g, \\
+\delta\dot{b}_g &amp;= \eta_{bg}, \\
+\delta\dot{b}_a &amp;= \eta_{ba}, \\
+\delta\dot{g} &amp;= 0.
+\end{aligned}
+\]</div>
+<h2 id="eskf_1">离散时间的 ESKF 运动方程<a class="headerlink" href="#eskf_1" title="Permanent link">¶</a></h2>
+<p>根据 IMU 积分公式，从连续时间状态方程推出离散时间的状态方程，只需要设定时间间隔 <span class="arithmatex">\(\Delta t\)</span> 即可，名义状态变量的离散时间运动方程可以写为（依旧是只考虑 IMU 测量的零偏，不考虑噪声）：</p>
+<div class="arithmatex">\[
+\begin{aligned}
+p(t + \Delta t) &amp;= p(t) + v\Delta t+ \frac{1}{2}(R(\tilde{a} - b_a)) \Delta t^2 + \frac{1}{2}g\Delta t^2 \\
+v(t + \Delta t) &amp;= v(t) + R(\tilde{a} - b_a)\Delta t + g\Delta t \\
+R(t + \Delta t) &amp;= R(t) \mathrm{Exp} ((\tilde{\omega} - b_g)\Delta t) \\
+b_g(t + \Delta t) &amp;= b_g(t) \\
+b_a(t + \Delta t) &amp;= b_a(t) \\
+g(t + \Delta t) &amp;= g(t)
+\end{aligned}
+\]</div>
+<p>误差变量的状态方程的离散形式与名义状态十分相似</p>
+<div class="arithmatex">\[
+\begin{aligned}
+\delta p(t + \Delta t) &amp;= \delta p + \delta v \Delta t \\
+\delta v(t + \Delta t) &amp;= \delta v + (-R(\tilde{a} - b_a)^{\wedge} \delta\theta - R\delta b_a + \delta g) \Delta t - \eta_v \\
+\delta\theta(t + \Delta t) &amp;= \mathrm{Exp} (-(\tilde{\omega} - b_g) \Delta t) \delta\theta - \delta b_g \Delta t - \eta_{\theta} \\
+\delta b_g(t + \Delta t) &amp;= \delta b_g + \eta_g \\
+\delta b_a(t + \Delta t) &amp;= \delta b_a + \eta_a \\
+\delta g(t + \Delta t) &amp;= \delta g
+\end{aligned}
+\]</div>
+<p>具体来说就是，<span class="arithmatex">\(t+\Delta t\)</span> 时刻的误差，等于 <span class="arithmatex">\(t\)</span> 时刻的误差 + <span class="arithmatex">\(\Delta t\)</span> 时间段内误差的累积，<strong>累积误差</strong> 等于误差变量的导数（也就是变化率）乘以时间 <span class="arithmatex">\(\Delta t\)</span>。参考式（16）的误差变量的运动方程应该比较好理解。</p>
+<p>需要注意的是：</p>
+<p>1、式（18）中右侧部分省略了括号里的(t)以简化公式，比如应该是 <span class="arithmatex">\(\delta p(t + \Delta t) = \delta p(t) + \delta v \Delta t\)</span>；</p>
+<p>2、关于旋转部分的积分，可以将式（16）中第三个方程，看成关于 <span class="arithmatex">\(\delta \theta\)</span> 的微分方程然后求解，求解过程类似对角速度进行积分；</p>
+<p>3、噪声项并不参与递推，需要把它们单独归入噪声部分。<strong>连续时间的噪声项可以视为随机过程的能量谱密度，而离散时间下的噪声变量就是我们日常看到的随机变量</strong>。这些噪声随机变量的标准差可以列写为：</p>
+<div class="arithmatex">\[
+\sigma(\eta_v) = \Delta t \sigma_a (k), \quad \sigma(\eta_\theta) = \Delta t \sigma_g (k), \quad \sigma(\eta_g) = \sqrt{\Delta t} \sigma_{bg}, \quad \sigma(\eta_a) = \sqrt{\Delta t} \sigma_{ba}
+\]</div>
+<p>至此，给出了误差状态变量在 ESKF 中进行 IMU 递推的过程，对应卡尔曼滤波器的状态方程，描述了误差状态变量如何随时间变化。</p>
+<p>为了让滤波器收敛，还需要外部的观测对卡尔曼滤波器进行修正，也就是所谓的组合导航。下面，以融合 GNSS 观测为例，介绍如何在 ESKF 中荣光和这些观测数据，形成一个收敛的卡尔曼滤波器。</p>
+<h2 id="eskf_2">ESKF 的运动过程<a class="headerlink" href="#eskf_2" title="Permanent link">¶</a></h2>
+<p>根据上述讨论，可以写出 ESKF 的运动过程（也就是式（18）的误差状态方程，它也描述了误差状态的变化规律，所以也可称为运动方程）。可以将式（18）整体抽象的记为：</p>
+<div class="arithmatex">\[
+\delta x_{k+1} = f(\delta x_k) + w, \quad w \sim \mathcal{N}(0, Q)
+\]</div>
+<p>其中 <span class="arithmatex">\(w\)</span> 为噪声，按照前面的定义，<span class="arithmatex">\(Q\)</span> 为：</p>
+<div class="arithmatex">\[
+Q = \mathrm{diag}(0_3, \mathrm{Cov} (\eta_v), \mathrm{Cov} (\eta_\theta), \mathrm{Cov} (\eta_g), \mathrm{Cov} (\eta_a), 0_3)
+\]</div>
+<p>两侧为 0 是因为第一个和最后一个方程本身没有噪声导致的。因为平移的噪声本质上是由速度引起的，噪声在速度方程里；而重力加速度一般认为是不变的。</p>
+<p>为了保持与 EKF 的负号统一，同样将运动方程线性化近似（一阶近似）：</p>
+<div class="arithmatex">\[
+\delta x(t + \Delta t) = \underbrace{f(\delta x(t))}_\text{= 0} + F\delta x(t) + w
+\]</div>
+<p>这里给 <span class="arithmatex">\(f(\delta x(t))\)</span> 下面加上“= 0”的标注，是因为 ESKF 每次更新之后，会把误差归零（Reset），所以我们默认上一时刻的误差估计值的均值为 0。</p>
+<p>所以，我们发现，如果 <span class="arithmatex">\(f(\delta x(t))\)</span> 这一项为 0 的话，式（22）就可以写成 <span class="arithmatex">\(\delta x(t + \Delta t) = F\delta x(t)\)</span>（不考虑噪声的情况下），其中 <span class="arithmatex">\(F\)</span> 为线性化后的雅可比矩阵：</p>
+<div class="arithmatex">\[
+\mathbf{F} =
+\begin{bmatrix}
+\mathbf{I} &amp; \mathbf{I}\Delta t &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{I} &amp; -R(\tilde{a} - b_a)^\wedge \Delta t &amp; \mathbf{0} &amp; -R \Delta t &amp; \mathbf{I} \Delta t \\
+\mathbf{0} &amp; \mathbf{0} &amp; \text{Exp}(-(\tilde{\omega} - b_g)\Delta t) &amp; -\mathbf{I}\Delta t &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I} &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I}
+\end{bmatrix}
+\]</div>
+<p>而我们观察原先的式（18），发现方程（18）本身就可以写成如下的矩阵形式，<strong>在重置前一时刻的误差为 0 的情况下，这个误差状态方程本身就是线性的。</strong></p>
+<div class="arithmatex">\[
+\begin{bmatrix}\delta p(t+\Delta t)\\ \delta v(t+\Delta t)\\ \delta \theta(t+\Delta t)\\ \delta bg(t+\Delta t)\\ \delta b_a(t+\Delta t)\\ \delta g(t+\Delta t) \end{bmatrix}=
+\begin{bmatrix}
+\mathbf{I} &amp; \mathbf{I}\Delta t &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{I} &amp; -R(\tilde{a} - b_a)^\wedge \Delta t &amp; \mathbf{0} &amp; -R \Delta t &amp; \mathbf{I} \Delta t \\
+\mathbf{0} &amp; \mathbf{0} &amp; \text{Exp}(-(\tilde{\omega} - b_g)\Delta t) &amp; -\mathbf{I}\Delta t &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I} &amp; \mathbf{0} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I} &amp; \mathbf{0} \\
+\mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{0} &amp; \mathbf{I}
+\end{bmatrix}
+\begin{bmatrix} \delta p(t)\\ \delta v(t)\\ \delta \theta(t)\\ \delta bg(t)\\ \delta b_a(t)\\ \delta g(t) \end{bmatrix}
+\]</div>
+<p>在此基础上，执行 ESKF 的预测过程。预测过程包括对名义状态的预测（IMU 积分）以及对误差状态的预测：</p>
+<div class="arithmatex">\[
+\delta x_{\text{pred}} = F\delta x, \\
+P_{\text{pred}} = FPF^{\text{T}} + Q
+\]</div>
+<p>由于 ESKF 的误差状态在每次更新以后，都会被重置为 <span class="arithmatex">\(\delta x = 0\)</span>，因此式（25）中均值的预测没有太大意义；协方差部分描述了整个误差估计的分布情况。从直观意义上来看，运动方程的噪声协方差中增加了 <span class="arithmatex">\(Q\)</span> 项，可以看作增大的过程。</p>
+<p>这里的 <span class="arithmatex">\(P\)</span> 是卡尔曼滤波迭代过程中产生的，是一个 <span class="arithmatex">\(18×18\)</span> 的协方差矩阵，用来描述 18 个误差变量 <span class="arithmatex">\(\delta x = [\delta p, \delta v, \delta \theta, \delta b_g, \delta b_a, \delta g]^T\)</span> 的不确定性的。</p>
+<p>1、初始时，我们需要给 <span class="arithmatex">\(P\)</span> 一个初始值 <span class="arithmatex">\(P_0\)</span>，代码中是 <span class="arithmatex">\(10^{-4} \cdot I\)</span>，表示初始时刻我们认为误差接近于 0，且非常自信（或者通过静态初始化计算出来的方差来赋值）。</p>
+<p>2、但是如果仅使用 IMU 积分，也就是式（24）来预测更新我们的误差状态，积分会累积误差，所以我们对误差变量的不确定性是增加的，<span class="arithmatex">\(P\)</span> 会变大</p>
+<div class="arithmatex">\[
+P_{\text{pred}} = \underbrace{F P F^\top}_{\text{第一部分：旧误差的传递}} + \underbrace{Q}_{\text{第二部分：新噪声的注入}}
+\]</div>
+<p>3、更新修正，当 GNSS 数据来了，我们获得了一个观测值，这可以帮助我们减少不确定性，<span class="arithmatex">\(P\)</span> 会变小</p>
+<div class="arithmatex">\[
+P =(I-KH)P_{pred}
+\]</div>
+<h2 id="eskf_3">ESKF 的更新过程<a class="headerlink" href="#eskf_3" title="Permanent link">¶</a></h2>
+<p>前面介绍的是 ESKF 的运动过程（仅通过 IMU 数据来更新误差变量，误差会不断累积），现在考虑更新过程。假设一个抽象的传感器能够对状态变量 <span class="arithmatex">\(x\)</span> 产生观测，其观测方程为抽象的 <span class="arithmatex">\(h\)</span>，那么可以写为：</p>
+<div class="arithmatex">\[
+z = h(x) + v, \quad v \sim \mathcal{N}(0, V)
+\]</div>
+<p>在传统 EKF 中，可以直观的对观测方程线性化，求出观测方程相对于状态变量的雅可比矩阵，进而更新卡尔曼滤波器。但是在 ESKF 中，当前拥有名义状态 <span class="arithmatex">\(x\)</span> 的估计以及误差状态 <span class="arithmatex">\(\delta x\)</span> 的估计，且希望更新的是误差状态，因此要计算观测方程相对于误差状态的雅可比矩阵：</p>
+<div class="arithmatex">\[
+H =\frac{\partial {h}}{\partial {\delta x}} \bigg|_{x_{pred}}
+\]</div>
+<p>然后计算卡尔曼增益，进而计算 <strong>误差状态的更新过程</strong>：</p>
+<div class="arithmatex">\[
+\begin{aligned}
+K &amp;= P_{\text{pred}}H^{\text{T}}(HP_{\text{pred}}H^{\text{T}} + V)^{-1} \\
+\delta x &amp;= K(z - h(x_{\text{pred}})) \\
+x &amp;= x_{\text{pred}} + \delta x \\
+P &amp;= (I - KH)P_{\text{pred}}
+\end{aligned}
+\]</div>
+<p>其中 <span class="arithmatex">\(z\)</span> 是观测方程结果，是 GNSS 的读数，GNSS 会给当前位置一个观测；<span class="arithmatex">\(h(x_{pred})\)</span> 表示如果车辆在 <span class="arithmatex">\(x_{pred}\)</span> 处，则 GNSS 读数应该是多少，这个 <span class="arithmatex">\(x_{pred}\)</span> 就是根据 IMU 运动学方程推算出来的，如果 <span class="arithmatex">\(x_{pred}\)</span> 很准的话，<span class="arithmatex">\(z\)</span> 和 <span class="arithmatex">\(h(x_{pred})\)</span> 应该很接近，那么预测的误差 <span class="arithmatex">\(\delta x\)</span> 应该也就很小（具体多小还取决于 <span class="arithmatex">\(x_{pred}\)</span> 的协方差矩阵 <span class="arithmatex">\(P_{pred}\)</span>，<span class="arithmatex">\(P_{pred}\)</span> 和 <span class="arithmatex">\(V\)</span> 决定了多大程度上相信 <span class="arithmatex">\(z\)</span> 的观测结果，因为用 <span class="arithmatex">\(z-h(x_{pred})\)</span> 来衡量误差，本质上是假设 <span class="arithmatex">\(z\)</span> 是准确的），也就说明了 <span class="arithmatex">\(x_{pred}\)</span> 和真值 <span class="arithmatex">\(x\)</span> 比较接近。</p>
+<p>大部分的观测数据是对名义状态的观测（这里我们是用名义状态来估计真实状态，因为 GNSS 一定是基于真实状态来观测的，只是我们不知道真实状态，所以用名义状态来估计，如果对名义状态的观测结果 <span class="arithmatex">\(h(x_{pred})\)</span> 和 GNSS 读数 <span class="arithmatex">\(z\)</span> 接近，说明名义状态和真实状态接近）。此时 <span class="arithmatex">\(H\)</span> 可以通过链式法则来生成：</p>
+<div class="arithmatex">\[
+H = \frac{\partial h}{\partial x} \frac{\partial x}{\partial \delta x}
+\]</div>
+<p>第一项可以通过将观测方程线性化得到；第二项，根据式（5.a-5.f）对状态变量的定义，可以得到：</p>
+<div class="arithmatex">\[
+\frac{\partial x}{\partial \delta x} = \text{diag}\left(I_3, I_3, \frac{\partial \text{Log}\left(R\left(\text{Exp}\left(\delta\theta\right)\right)\right)}{\partial \delta\theta}, I_3, I_3, I_3\right)
+\]</div>
+<p>其他几项都是平凡的，求导为单位矩阵。只有旋转部分，因为 <span class="arithmatex">\(\delta \theta\)</span> 定义为 <span class="arithmatex">\(R\)</span> 的右乘，用右乘的 BCH 即可：</p>
+<div class="arithmatex">\[
+\frac{\partial \text{Log}(R(\text{Exp}(\delta\theta)))}{\partial \delta\theta} = J_r^{-1}(R)
+\]</div>
+<h2 id="eskf_4">ESKF 的误差状态后续处理<a class="headerlink" href="#eskf_4" title="Permanent link">¶</a></h2>
+<p>经过预测和更新过程之后，我们修正了误差状态的估计。接下来，只需要把误差状态加到名义状态中，更新名义状态对真实状态的估计，然后重置 ESKF 即可。误差状态加到名义状态可以写为：</p>
+<div class="arithmatex">\[
+p_{k+1} = p_{k} + \delta p_{k} \\
+v_{k+1} = v_{k} + \delta v_{k} \\
+R_{k+1} = R_{k}\text{Exp}(\delta\theta_{k}) \\
+b_{g, k+1} = b_{g, k} + \delta b_{g, k} \\
+b_{a, k+1} = b_{a, k} + \delta b_{a, k} \\
+g_{k+1} = g_{k} + \delta g_{k}  
+\]</div>
+<p>然后是 ESKF 的重置，重置分为均值部分和协方差部分，均值部分可以简单的实现为：</p>
+<div class="arithmatex">\[
+\delta x = 0
+\]</div>
+<p>表示经过一次 GNSS 观测的修正，我们认为将两次 GNSS 观测时间间隔内 IMU 的累积误差都消除干净了。由于均值被重置了，所以之前描述的是关于 <span class="arithmatex">\(x_k\)</span> 切空间中的协方差，而现在描述的是 <span class="arithmatex">\(x_{k+1}\)</span> 中的协方差。重置会带来一些微小的差异，主要影响旋转部分。</p>
+<p>事实上，在重置前，卡尔曼滤波器刻画了 <span class="arithmatex">\(x_{pred}\)</span> 切空间处的一个高斯分布 <span class="arithmatex">\(\mathcal{N}(\delta x, P)\)</span>，而重置之后，应该刻画 <span class="arithmatex">\(x_{pred}+\delta x\)</span> 处的一个 <span class="arithmatex">\(\mathcal{N}(0, P_{reset})\)</span>。这对本身就是矢量的状态是没有差别的，但对于旋转变量来说，它们的切空间零点发生了变化，对应的切平面也发生了变化（<strong>因为旋转空间（流形）是弯曲的，你把“坐标原点”搬家了，描述“不确定性范围”的椭球形状也得跟着变一下。</strong>），所以在数学上，需要对此区分。</p>
+<p>设重置前的名义旋转估计为 <span class="arithmatex">\(R_k\)</span>，误差状态为 <span class="arithmatex">\(\delta \theta\)</span>（这是一个随机变量），卡尔曼滤波器的增量计算结果为 <span class="arithmatex">\(\delta \theta_k\)</span>（这是卡尔曼滤波器对随机变量 <span class="arithmatex">\(\delta \theta\)</span> 的最优估计），则重置之后的名义旋转部分为 <span class="arithmatex">\(R_k\text{Exp}(\delta \theta_k)= R^{+}\)</span>，误差状态为 <span class="arithmatex">\(\delta \theta^{+}\)</span>，由于误差状态被重置了，这里的 <span class="arithmatex">\(\delta \theta^{+}\)</span> 其实等于 0。但是我们关系的并不是它们的直接取值，而是 <span class="arithmatex">\(\delta \theta^{+}\)</span> 和 <span class="arithmatex">\(\delta \theta\)</span> 的线性化关系（<strong>也就是重置这一过程中误差状态分布是怎么变换的</strong>），把实际的重置过程写出来：</p>
+<div class="arithmatex">\[
+R_t = R^{+}\text{Exp}(\delta\theta^{+}) = R_{k}\text{Exp}(\delta\theta_{k})\text{Exp}(\delta\theta^{+}) = R_{k}\text{Exp}(\delta\theta).
+\]</div>
+<p>不难得到：</p>
+<div class="arithmatex">\[
+\text{Exp}(\delta\theta^{+}) = \text{Exp}(-\delta\theta_{k})\text{Exp}(\delta\theta)
+\]</div>
+<p>这里 <span class="arithmatex">\(\delta \theta\)</span> 为小量，利用线性化后的 BCH 公式，可以得到</p>
+<div class="arithmatex">\[
+\delta\theta^{+} = -\delta\theta_{k} + \delta\theta - \frac{1}{2}\hat{\delta\theta}_{k}\delta\theta + o((\delta\theta)^{2})
+\]</div>
+<p>这是因为在 <span class="arithmatex">\(\mathfrak{so}(3)\)</span> 李代数中，当 <span class="arithmatex">\(\phi_1\)</span> 和 <span class="arithmatex">\(\phi_2\)</span> 都是 <strong>小量</strong> 时，根据 BCH 公式的二阶近似（保留到二次项）：</p>
+<div class="arithmatex">\[
+\ln(\text{Exp}(\phi_1)\text{Exp}(\phi_2))^\vee \approx \phi_1 + \phi_2 + \frac{1}{2}[\phi_1, \phi_2]
+\]</div>
+<p>其中 <span class="arithmatex">\([\phi_1, \phi_2]\)</span> 是李括号 (Lie Bracket)。在旋转向量空间中，李括号等于叉积（或者写成反对称矩阵乘法）：</p>
+<div class="arithmatex">\[
+[\phi_1, \phi_2] = \phi_1^\wedge \phi_2
+\]</div>
+<p>所以，BCH 近似公式可以写成：<span class="arithmatex">\(\phi_{new} \approx \phi_1 + \phi_2 + \frac{1}{2} \phi_1^\wedge \phi_2\)</span></p>
+<p>所以：</p>
+<div class="arithmatex">\[
+\frac{\partial \delta\theta^{+}}{\partial \delta\theta} \approx I - \frac{1}{2}\delta\theta_{k}^{\wedge}
+\]</div>
+<p>式（41）表面重置前后的误差状态（随机变量）相差一个旋转方面的小雅可比矩阵，记作 <span class="arithmatex">\(J_{\theta}= I-\frac{1}{2}\delta \theta_k^{\wedge}\)</span>，把这个小雅可比矩阵放到整个状态变量维度下，并保持其他部分为单位阵，可以得到一个完整的雅可比矩阵：</p>
+<div class="arithmatex">\[
+J_k = \text{diag}(I_3, I_3, J_\theta, I_3, I_3, I_3)
+\]</div>
+<p>因此，在把误差状态的均值归零的同时，它们的协方差矩阵也应该进行线性变换（旧中心到新中心的变换）：</p>
+<div class="arithmatex">\[
+P_{reset}= J_kPJ_k^T
+\]</div>
+<p>不过由于 <span class="arithmatex">\(\delta \theta_k\)</span> 并不大，这里的 <span class="arithmatex">\(J_k\)</span> 依然十分接近单位阵，所以很多资料里面并不处理这一项，而是直接把前面估计的 <span class="arithmatex">\(P\)</span> 矩阵作为下一时刻的起点。</p>
+<p>该问题的实际意义是做了切空间投影，即把一个切空间中的高斯分布投影到另一个切空间中。在 ESKF 中，两者没有明显差异，但后文的迭代卡尔曼滤波器（IEKF）还会牵扯到在观测过程中多次变换切空间，所以这里可以先熟悉一下这个过程和原理。</p>
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="最后更新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 13:02:37 UTC">2026年9月6日</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="创建日期">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"></path></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="2026年9月6日 13:02:37 UTC">2026年9月6日</span>
+  </span>
+
+    
+    
+    
+  </aside>
+
+
+
+
+
+  <script src="https://giscus.app/client.js" data-repo="Gongzihang6/Algorithm-Introduction-Questions" data-repo-id="R_kgDOOJYVMA" data-category="General" data-category-id="DIC_kwDOOJYVMM4C0KG2" data-mapping="pathname" data-strict="0" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="preferred_color_scheme" data-lang="zh-CN" crossorigin="anonymous" async="">
+  </script>
+
+                
+
+  
+  <script src="https://giscus.app/client.js" data-repo="Gongzihang6/Algorithm-Introduction-Questions" data-repo-id="R_kgDOOJYVMA" data-category="General" data-category-id="DIC_kwDOOJYVMM4C0KG2" data-mapping="pathname" data-strict="0" data-reactions-enabled="1" data-emit-metadata="0" data-input-position="top" data-theme="preferred_color_scheme" data-lang="zh-CN" crossorigin="anonymous" async="">
+  </script>
+
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden="">
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  回到页面顶部
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright © 2026 Gongzihang6
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["toc.follow", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "\u5df2\u590d\u5236", "clipboard.copy": "\u590d\u5236", "search.result.more.one": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.other": "\u5728\u8be5\u9875\u4e0a\u8fd8\u6709 # \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.term.missing": "\u7f3a\u5c11", "select.version": "\u9009\u62e9\u5f53\u524d\u7248\u672c"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/mathjax.js"></script>
+      
+        <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>

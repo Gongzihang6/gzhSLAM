@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VINS-Mono 紧耦合非线性优化状态估计详解</title>
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8f5;
+      --paper: #ffffff;
+      --ink: #17201c;
+      --muted: #5f6a64;
+      --line: #d7ddd6;
+      --green: #1f6f55;
+      --blue: #205b8f;
+      --amber: #9b631c;
+      --red: #9b3530;
+      --code: #f1f4f0;
+      --shadow: 0 16px 48px rgba(23, 32, 28, 0.10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.72;
+      letter-spacing: 0;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .page { display: grid; grid-template-columns: 292px minmax(0, 1fr); min-height: 100vh; }
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 28px 20px;
+      background: #edf1eb;
+      border-right: 1px solid var(--line);
+    }
+    aside h2 { margin: 0 0 14px; font-size: 19px; line-height: 1.28; }
+    aside p { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+    nav a {
+      display: block;
+      padding: 8px 10px;
+      margin: 2px 0;
+      border-radius: 6px;
+      color: #26312c;
+      font-size: 14px;
+    }
+    nav a:hover { background: #dde6dc; text-decoration: none; }
+    main { padding: 34px min(5vw, 70px) 80px; }
+    .hero {
+      max-width: 1180px;
+      margin: 0 auto 24px;
+      padding: 36px 42px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 8px;
+    }
+    .hero .kicker { margin: 0 0 10px; color: var(--green); font-weight: 700; }
+    h1 { margin: 0 0 14px; font-size: clamp(32px, 4vw, 54px); line-height: 1.12; letter-spacing: 0; }
+    .hero p { max-width: 940px; margin: 0; color: #38433e; font-size: 18px; }
+    section {
+      max-width: 1180px;
+      margin: 22px auto;
+      padding: 30px 34px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    h2 { margin: 0 0 16px; font-size: 28px; line-height: 1.24; letter-spacing: 0; }
+    h3 { margin: 28px 0 10px; font-size: 21px; line-height: 1.32; letter-spacing: 0; }
+    h4 { margin: 20px 0 8px; font-size: 17px; line-height: 1.32; letter-spacing: 0; }
+    p { margin: 9px 0; }
+    ul, ol { padding-left: 22px; margin: 10px 0; }
+    li { margin: 6px 0; }
+    .lead { color: #3b4741; font-size: 17px; }
+    .note {
+      border-left: 4px solid var(--green);
+      background: #eef6f1;
+      padding: 12px 14px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .warn {
+      border-left: 4px solid var(--amber);
+      background: #fff6e8;
+      padding: 12px 14px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .grid { display: grid; gap: 14px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fbfcfa;
+    }
+    .card h3, .card h4 { margin-top: 0; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e2ebe5;
+      color: #1f5b47;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+    }
+    .formula {
+      overflow-x: auto;
+      padding: 12px 14px;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+    }
+    code, pre {
+      font-family: Consolas, "Cascadia Mono", "SFMono-Regular", Menlo, monospace;
+      background: var(--code);
+      border-radius: 4px;
+    }
+    code { padding: 2px 5px; }
+    pre {
+      overflow-x: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      line-height: 1.55;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+    th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: #edf1eb; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0;
+    }
+    .step {
+      position: relative;
+      min-height: 120px;
+      padding: 14px;
+      border: 1px solid #cdd7ce;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #ffffff, #f2f6f2);
+    }
+    .step strong { display: block; margin-bottom: 6px; color: var(--green); }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 10px;
+      height: 2px;
+      background: #9aac9f;
+    }
+    .mini-graph {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      align-items: center;
+      gap: 8px;
+      margin: 18px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f7faf7;
+    }
+    .node {
+      min-height: 54px;
+      border-radius: 8px;
+      border: 2px solid var(--green);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-weight: 700;
+      background: #ffffff;
+    }
+    .node.old { border-color: var(--muted); color: var(--muted); }
+    .node.latest { border-color: var(--blue); color: var(--blue); }
+    .edge {
+      height: 2px;
+      background: #7e9086;
+      position: relative;
+    }
+    .edge::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      top: -4px;
+      border-left: 8px solid #7e9086;
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+    .svg-wrap {
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+    }
+    .svg-wrap svg { display: block; width: 100%; min-width: 760px; height: auto; }
+    .caption { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .checklist li::marker { color: var(--green); }
+    .footer { color: var(--muted); font-size: 13px; }
+    @media (max-width: 980px) {
+      .page { display: block; }
+      aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      main { padding: 22px 14px 54px; }
+      .hero, section { padding: 22px 18px; }
+      .grid.two, .grid.three, .pipeline { grid-template-columns: 1fr; }
+      .step:not(:last-child)::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside>
+      <h2>VINS-Mono 技术讲义</h2>
+      <p>基于 Tong Qin、Peiliang Li、Shaojie Shen 的 VINS-Mono 论文，聚焦紧耦合非线性优化如何做状态估计与位姿优化。</p>
+      <nav>
+        <a href="#overview">1. 一句话总览</a>
+        <a href="#pipeline">2. 系统管线</a>
+        <a href="#frames">3. 坐标系与状态量</a>
+        <a href="#preprocess">4. 测量预处理</a>
+        <a href="#imu">5. IMU 预积分</a>
+        <a href="#init">6. 初始化</a>
+        <a href="#map">7. MAP 优化问题</a>
+        <a href="#residuals">8. 残差构造</a>
+        <a href="#marginalization">9. 边缘化</a>
+        <a href="#solve">10. 求解流程</a>
+        <a href="#relocalization">11. 重定位与位姿图</a>
+        <a href="#observability">12. 可观性与工程要点</a>
+        <a href="#summary">13. 总结速查</a>
+      </nav>
+    </aside>
+    <main>
+      <div class="hero">
+        <p class="kicker">Tightly-Coupled Sliding-Window Nonlinear Optimization</p>
+        <h1>VINS-Mono 通过紧耦合非线性优化进行状态估计与位姿优化的原理</h1>
+        <p>这份 HTML 讲义把 VINS-Mono 的核心估计器拆成可理解的模块：视觉前端提供多帧特征约束，IMU 预积分提供相邻关键帧运动约束，滑动窗口中的位姿、速度、偏置、外参和特征逆深度被统一放进一个最大后验优化问题中联合求解。</p>
+      </div>
+
+      <section id="overview">
+        <h2>1. 一句话总览</h2>
+        <p class="lead">VINS-Mono 的核心不是“先用视觉算位姿，再用 IMU 滤波修正”，而是把相机观测和 IMU 观测都写成残差项，在一个有限长度的滑动窗口内同时优化所有相关状态。</p>
+        <div class="note">紧耦合的含义是：优化器直接使用原始层面的特征观测和 IMU 预积分约束，而不是使用视觉模块已经独立估计好的位姿作为外部测量。非线性的来源包括旋转群、透视投影、单位球面投影、尺度、重力方向、IMU bias 和相机-IMU 外参。</div>
+        <div class="grid three">
+          <div class="card">
+            <span class="tag">输入</span>
+            <h3>相机与 IMU</h3>
+            <p>相机低频输出图像，IMU 高频输出角速度和加速度。视觉给出几何约束但单目缺尺度，IMU 给出短时运动和重力信息但有噪声与 bias。</p>
+          </div>
+          <div class="card">
+            <span class="tag">核心</span>
+            <h3>滑窗联合优化</h3>
+            <p>窗口内保留最近若干帧状态、外参和特征逆深度，最小化先验残差、IMU 残差和视觉重投影残差的加权和。</p>
+          </div>
+          <div class="card">
+            <span class="tag">输出</span>
+            <h3>局部高精度轨迹</h3>
+            <p>VIO 输出局部一致的位姿、速度和偏置；重定位与 4-DoF 位姿图进一步减少长期漂移，尤其是位置和 yaw 漂移。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="pipeline">
+        <h2>2. 系统管线</h2>
+        <p>论文中的完整系统包含测量预处理、初始化、滑窗 VIO、重定位和全局位姿图优化。若只看“状态估计和位姿优化”，主线可以压缩成下面五步。</p>
+        <div class="pipeline">
+          <div class="step"><strong>视觉前端</strong> KLT 跟踪角点，补充新角点，RANSAC 剔除外点，按视差和跟踪质量选择关键帧。</div>
+          <div class="step"><strong>IMU 预积分</strong> 把两帧图像之间的高频 IMU 样本压缩成 $\hat\alpha,\hat\beta,\hat\gamma$ 及协方差。</div>
+          <div class="step"><strong>初始化</strong> 视觉 SfM 先得到无尺度结构，再与 IMU 对齐，恢复尺度、速度、重力和陀螺仪 bias。</div>
+          <div class="step"><strong>滑窗优化</strong> 联合优化窗口内 IMU 状态、相机-IMU 外参和特征逆深度，得到局部最优估计。</div>
+          <div class="step"><strong>边缘化与闭环</strong> 旧状态被转成先验，闭环特征约束用于重定位，关键帧进入 4-DoF 位姿图。</div>
+        </div>
+        <div class="svg-wrap">
+          <svg viewBox="0 0 980 270" role="img" aria-label="VINS-Mono factor graph">
+            <defs>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#607168"></path>
+              </marker>
+            </defs>
+            <rect x="30" y="30" width="920" height="210" rx="8" fill="#f7faf7" stroke="#d7ddd6"></rect>
+            <g fill="#fff" stroke="#1f6f55" stroke-width="3">
+              <circle cx="120" cy="120" r="36"></circle>
+              <circle cx="260" cy="120" r="36"></circle>
+              <circle cx="400" cy="120" r="36"></circle>
+              <circle cx="540" cy="120" r="36"></circle>
+              <circle cx="680" cy="120" r="36"></circle>
+            </g>
+            <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" fill="#17201c" text-anchor="middle">
+              <text x="120" y="126">x₀</text>
+              <text x="260" y="126">x₁</text>
+              <text x="400" y="126">x₂</text>
+              <text x="540" y="126">x₃</text>
+              <text x="680" y="126">x₄</text>
+            </g>
+            <g stroke="#607168" stroke-width="2.5" marker-end="url(#arrow)">
+              <line x1="156" y1="120" x2="224" y2="120"></line>
+              <line x1="296" y1="120" x2="364" y2="120"></line>
+              <line x1="436" y1="120" x2="504" y2="120"></line>
+              <line x1="576" y1="120" x2="644" y2="120"></line>
+            </g>
+            <g fill="#e8f0ff" stroke="#205b8f" stroke-width="2">
+              <rect x="188" y="72" width="64" height="28" rx="5"></rect>
+              <rect x="328" y="72" width="64" height="28" rx="5"></rect>
+              <rect x="468" y="72" width="64" height="28" rx="5"></rect>
+              <rect x="608" y="72" width="64" height="28" rx="5"></rect>
+            </g>
+            <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" fill="#205b8f" text-anchor="middle">
+              <text x="220" y="91">IMU</text>
+              <text x="360" y="91">IMU</text>
+              <text x="500" y="91">IMU</text>
+              <text x="640" y="91">IMU</text>
+            </g>
+            <g fill="#fff7e8" stroke="#9b631c" stroke-width="2">
+              <circle cx="210" cy="200" r="24"></circle>
+              <circle cx="430" cy="205" r="24"></circle>
+              <circle cx="620" cy="198" r="24"></circle>
+            </g>
+            <g font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" fill="#9b631c" text-anchor="middle">
+              <text x="210" y="205">λ₀</text>
+              <text x="430" y="210">λ₁</text>
+              <text x="620" y="203">λ₂</text>
+            </g>
+            <g stroke="#9b631c" stroke-width="1.8" stroke-dasharray="5 5">
+              <line x1="210" y1="176" x2="120" y2="145"></line>
+              <line x1="210" y1="176" x2="260" y2="145"></line>
+              <line x1="210" y1="176" x2="400" y2="145"></line>
+              <line x1="430" y1="181" x2="260" y2="145"></line>
+              <line x1="430" y1="181" x2="400" y2="145"></line>
+              <line x1="430" y1="181" x2="540" y2="145"></line>
+              <line x1="620" y1="174" x2="400" y2="145"></line>
+              <line x1="620" y1="174" x2="540" y2="145"></line>
+              <line x1="620" y1="174" x2="680" y2="145"></line>
+            </g>
+            <rect x="760" y="72" width="135" height="76" rx="8" fill="#eef6f1" stroke="#1f6f55" stroke-width="2"></rect>
+            <text x="827" y="105" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" fill="#1f6f55" text-anchor="middle">先验因子</text>
+            <text x="827" y="130" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="13" fill="#38433e" text-anchor="middle">边缘化保留的信息</text>
+          </svg>
+        </div>
+        <p class="caption">图中 $x_k$ 是第 $k$ 张图像时刻的 IMU 状态，$\lambda_l$ 是特征逆深度；相邻状态之间是 IMU 预积分因子，多帧观测同一特征形成视觉因子，边缘化产生先验因子。</p>
+      </section>
+
+      <section id="frames">
+        <h2>3. 坐标系与状态量</h2>
+        <p>VINS-Mono 使用世界坐标系 $(\cdot)^w$、IMU/body 坐标系 $(\cdot)^b$ 和相机坐标系 $(\cdot)^c$。body frame 被定义为 IMU frame，$b_k$ 表示采集第 $k$ 张图像时的 IMU 坐标系，$c_k$ 表示同一时刻的相机坐标系。</p>
+        <table>
+          <thead><tr><th>符号</th><th>含义</th><th>为什么重要</th></tr></thead>
+          <tbody>
+            <tr><td>$\mathbf{p}_{b_k}^w$</td><td>IMU 在世界系下的位置</td><td>轨迹估计的核心输出，也是视觉和 IMU 约束共同作用的变量。</td></tr>
+            <tr><td>$\mathbf{v}_{b_k}^w$</td><td>IMU 在世界系下的速度</td><td>IMU 积分天然涉及速度，速度让相邻帧动力学约束闭合。</td></tr>
+            <tr><td>$\mathbf{q}_{b_k}^w$ 或 $\mathbf{R}_{b_k}^w$</td><td>IMU 到世界系的旋转</td><td>旋转决定重力和加速度如何在不同坐标系间转换。</td></tr>
+            <tr><td>$\mathbf{b}_a,\mathbf{b}_g$</td><td>加速度计 bias、陀螺仪 bias</td><td>低成本 IMU 的 bias 会随时间漂移，必须在线估计。</td></tr>
+            <tr><td>$\mathbf{p}_c^b,\mathbf{q}_c^b$</td><td>相机到 IMU 的外参</td><td>视觉测量在相机系，IMU 运动在 body 系，外参误差会直接污染融合结果。</td></tr>
+            <tr><td>$\lambda_l$</td><td>第 $l$ 个特征在首帧观测下的逆深度</td><td>单目深度未知，用逆深度可更稳定地参数化远点。</td></tr>
+          </tbody>
+        </table>
+        <p>论文给出的滑窗完整状态向量可写为：</p>
+        <div class="formula">
+          $$\mathcal{X}=\left[\mathbf{x}_0,\mathbf{x}_1,\ldots,\mathbf{x}_n,\mathbf{x}_{bc},\lambda_0,\lambda_1,\ldots,\lambda_m\right]$$
+          $$\mathbf{x}_k=\left[\mathbf{p}_{b_k}^w,\mathbf{v}_{b_k}^w,\mathbf{q}_{b_k}^w,\mathbf{b}_a,\mathbf{b}_g\right],\quad
+          \mathbf{x}_{bc}=\left[\mathbf{p}_c^b,\mathbf{q}_c^b\right]$$
+        </div>
+        <div class="warn">注意：这里优化的是窗口内一串状态，而不是单个当前位姿。视觉残差天然跨多帧，IMU 残差天然连接相邻帧，因此单帧优化会丢掉大量约束结构。</div>
+      </section>
+
+      <section id="preprocess">
+        <h2>4. 测量预处理</h2>
+        <h3>4.1 视觉前端：只做可靠几何约束，不直接决定最终位姿</h3>
+        <p>每来一帧图像，VINS-Mono 使用 KLT 稀疏光流跟踪已有特征，同时检测新的角点以维持足够数量和空间分布。特征经过去畸变后投影到单位球面，并用基础矩阵 RANSAC 剔除外点。</p>
+        <p>关键帧选择主要看两个条件：其一是当前帧和最近关键帧之间的平均视差是否足够大，其二是跟踪质量是否下降到阈值以下。为了避免纯旋转导致“看起来有视差但无法三角化”，论文用短时陀螺仪积分补偿旋转后再计算视差。</p>
+        <h3>4.2 IMU 前端：把高频数据压缩成相邻图像帧之间的约束</h3>
+        <p>IMU 频率远高于相机，如果每次非线性迭代都重新积分全部 IMU 样本，计算量会很大。预积分的目标是把 $[t_k,t_{k+1}]$ 内所有 IMU 测量压缩成相对位移、相对速度和相对旋转测量，并让它们尽量不依赖起点的绝对位姿。</p>
+      </section>
+
+      <section id="imu">
+        <h2>5. IMU 预积分</h2>
+        <p>论文中的原始 IMU 模型把测量写成真实运动、重力、bias 和噪声的组合。加速度计测到的是包含抵消重力项的比力，陀螺仪测到的是角速度；bias 被建模为随机游走。</p>
+        <div class="formula">
+          $$\hat{\mathbf{a}}_t=\mathbf{a}_t+\mathbf{b}_{a_t}+\mathbf{R}_w^t\mathbf{g}^w+\mathbf{n}_a,\quad
+          \hat{\boldsymbol{\omega}}_t=\boldsymbol{\omega}_t+\mathbf{b}_{g_t}+\mathbf{n}_g$$
+          $$\dot{\mathbf{b}}_{a_t}=\mathbf{n}_{b_a},\quad \dot{\mathbf{b}}_{g_t}=\mathbf{n}_{b_g}$$
+        </div>
+        <h3>5.1 为什么需要预积分</h3>
+        <p>如果直接从世界系传播状态，相邻帧位置、速度和姿态满足：</p>
+        <div class="formula">
+          $$\mathbf{p}_{b_{k+1}}^w=\mathbf{p}_{b_k}^w+\mathbf{v}_{b_k}^w\Delta t_k+
+          \iint_{t\in[t_k,t_{k+1}]}\left(\mathbf{R}_t^w(\hat{\mathbf{a}}_t-\mathbf{b}_{a_t}-\mathbf{n}_a)-\mathbf{g}^w\right)dt^2$$
+          $$\mathbf{v}_{b_{k+1}}^w=\mathbf{v}_{b_k}^w+
+          \int_{t\in[t_k,t_{k+1}]}\left(\mathbf{R}_t^w(\hat{\mathbf{a}}_t-\mathbf{b}_{a_t}-\mathbf{n}_a)-\mathbf{g}^w\right)dt$$
+        </div>
+        <p>问题是这些积分依赖起始状态 $\mathbf{R}_{b_k}^w,\mathbf{p}_{b_k}^w,\mathbf{v}_{b_k}^w$。非线性优化每次更新状态后，如果都重新传播 IMU，会造成很高开销。预积分通过切换到局部参考帧 $b_k$，把两帧之间的相对运动提取为只与 IMU 测量和 bias 有关的量。</p>
+        <h3>5.2 预积分量的物理含义</h3>
+        <div class="formula">
+          $$\boldsymbol{\alpha}_{b_{k+1}}^{b_k}=\iint \mathbf{R}_t^{b_k}(\hat{\mathbf{a}}_t-\mathbf{b}_{a_t}-\mathbf{n}_a)dt^2$$
+          $$\boldsymbol{\beta}_{b_{k+1}}^{b_k}=\int \mathbf{R}_t^{b_k}(\hat{\mathbf{a}}_t-\mathbf{b}_{a_t}-\mathbf{n}_a)dt$$
+          $$\boldsymbol{\gamma}_{b_{k+1}}^{b_k}=\int \frac{1}{2}\Omega(\hat{\boldsymbol{\omega}}_t-\mathbf{b}_{g_t}-\mathbf{n}_g)\boldsymbol{\gamma}_t^{b_k}dt$$
+        </div>
+        <table>
+          <thead><tr><th>预积分量</th><th>可理解为</th><th>在残差中约束什么</th></tr></thead>
+          <tbody>
+            <tr><td>$\boldsymbol{\alpha}$</td><td>去掉起点位置、速度和重力影响后的相对位移</td><td>约束 $\mathbf{p}_{b_k}^w,\mathbf{p}_{b_{k+1}}^w,\mathbf{v}_{b_k}^w,\mathbf{q}_{b_k}^w$。</td></tr>
+            <tr><td>$\boldsymbol{\beta}$</td><td>去掉重力影响后的相对速度增量</td><td>约束 $\mathbf{v}_{b_k}^w,\mathbf{v}_{b_{k+1}}^w,\mathbf{q}_{b_k}^w$。</td></tr>
+            <tr><td>$\boldsymbol{\gamma}$</td><td>两帧 IMU 之间的相对旋转</td><td>约束 $\mathbf{q}_{b_k}^w,\mathbf{q}_{b_{k+1}}^w$，并强烈影响陀螺仪 bias。</td></tr>
+          </tbody>
+        </table>
+        <h3>5.3 离散传播与 bias 一阶修正</h3>
+        <p>实现中按 IMU 样本离散传播，论文为说明使用欧拉积分，实际代码可使用中值积分。忽略未知噪声后，均值传播近似为：</p>
+        <div class="formula">
+          $$\hat{\boldsymbol{\alpha}}_{i+1}^{b_k}=\hat{\boldsymbol{\alpha}}_i^{b_k}+\hat{\boldsymbol{\beta}}_i^{b_k}\delta t+
+          \frac{1}{2}\mathbf{R}(\hat{\boldsymbol{\gamma}}_i^{b_k})(\hat{\mathbf{a}}_i-\mathbf{b}_{a_i})\delta t^2$$
+          $$\hat{\boldsymbol{\beta}}_{i+1}^{b_k}=\hat{\boldsymbol{\beta}}_i^{b_k}+
+          \mathbf{R}(\hat{\boldsymbol{\gamma}}_i^{b_k})(\hat{\mathbf{a}}_i-\mathbf{b}_{a_i})\delta t$$
+          $$\hat{\boldsymbol{\gamma}}_{i+1}^{b_k}=\hat{\boldsymbol{\gamma}}_i^{b_k}\otimes
+          \begin{bmatrix}1\\\frac{1}{2}(\hat{\boldsymbol{\omega}}_i-\mathbf{b}_{g_i})\delta t\end{bmatrix}$$
+        </div>
+        <p>预积分还同步传播协方差 $P_{b_{k+1}}^{b_k}$ 和对 bias 的雅可比 $J$。当优化器更新 bias 较小时，不需要重新积分全部 IMU，只用一阶近似修正：</p>
+        <div class="formula">
+          $$\boldsymbol{\alpha}\approx\hat{\boldsymbol{\alpha}}+
+          \mathbf{J}_{b_a}^{\alpha}\delta\mathbf{b}_a+\mathbf{J}_{b_g}^{\alpha}\delta\mathbf{b}_g$$
+          $$\boldsymbol{\beta}\approx\hat{\boldsymbol{\beta}}+
+          \mathbf{J}_{b_a}^{\beta}\delta\mathbf{b}_a+\mathbf{J}_{b_g}^{\beta}\delta\mathbf{b}_g$$
+          $$\boldsymbol{\gamma}\approx\hat{\boldsymbol{\gamma}}\otimes
+          \begin{bmatrix}1\\\frac{1}{2}\mathbf{J}_{b_g}^{\gamma}\delta\mathbf{b}_g\end{bmatrix}$$
+        </div>
+        <div class="note">这一步是优化效率的关键。预积分把“许多条 IMU 测量”变成“一条相邻状态之间的因子”，同时保留不确定性和 bias 可修正性。</div>
+      </section>
+
+      <section id="init">
+        <h2>6. 初始化</h2>
+        <p>单目 VIO 不能从任意初值直接稳定优化，因为尺度、重力方向、速度和 bias 耦合很强。VINS-Mono 采用“先视觉 SfM，再视觉-惯性对齐”的松耦合初始化，为后续紧耦合优化提供可用初值。</p>
+        <h3>6.1 视觉 SfM 得到无尺度结构</h3>
+        <p>系统在滑窗内寻找与最新帧有足够跟踪特征和足够视差的历史帧，用五点法恢复相对旋转和无尺度平移，再三角化特征，并通过 PnP 估计其它帧位姿，最后做一次全局 BA 最小化视觉重投影误差。此时所有相机位姿和特征点都在第一帧相机坐标系 $c_0$ 下，且平移仍然只有任意尺度。</p>
+        <h3>6.2 视觉-惯性对齐恢复尺度、重力和速度</h3>
+        <p>初始化首先利用视觉 SfM 的相对旋转和 IMU 预积分相对旋转校准陀螺仪 bias：</p>
+        <div class="formula">
+          $$\min_{\delta\mathbf{b}_g}\sum_{k\in\mathcal{B}}
+          \left\|\mathbf{q}_{c_0}^{c_{k+1}^{-1}}\otimes\mathbf{q}_{c_0}^{c_k}\otimes
+          \boldsymbol{\gamma}_{b_{k+1}}^{b_k}\right\|^2$$
+        </div>
+        <p>随后把未知量设为各帧速度、重力向量和尺度：</p>
+        <div class="formula">
+          $$\mathcal{X}_I=\left[\mathbf{v}_{b_0}^{b_0},\mathbf{v}_{b_1}^{b_1},\ldots,\mathbf{v}_{b_n}^{b_n},\mathbf{g}^{c_0},s\right]$$
+        </div>
+        <p>通过相邻帧预积分方程构造线性最小二乘，求出速度、重力和尺度。最后利用已知重力模长 $g\approx 9.81m/s^2$，把重力只放在切平面上的 2 个自由度里迭代细化。</p>
+        <div class="warn">论文在初始化阶段通常忽略加速度计 bias，因为短时间内加速度 bias 与重力强耦合，且重力幅值远大于平台运动加速度，直接估计容易不稳定。进入滑窗优化后，加速度 bias 会作为状态被在线估计。</div>
+      </section>
+
+      <section id="map">
+        <h2>7. MAP 优化问题</h2>
+        <p>初始化成功后，VINS-Mono 进入滑动窗口视觉-惯性 BA。优化目标是最大后验估计，在高斯噪声假设下等价于最小化加权残差平方和；视觉残差使用 Huber 鲁棒核以降低外点影响。</p>
+        <div class="formula">
+          $$\min_{\mathcal{X}}\left\{
+          \left\|\mathbf{r}_p-\mathbf{H}_p\mathcal{X}\right\|^2+
+          \sum_{k\in\mathcal{B}}\left\|\mathbf{r}_B(\hat{\mathbf{z}}_{b_{k+1}}^{b_k},\mathcal{X})\right\|_{\mathbf{P}_{b_{k+1}}^{b_k}}^2+
+          \sum_{(l,j)\in\mathcal{C}}\rho\left(\left\|\mathbf{r}_C(\hat{\mathbf{z}}_l^{c_j},\mathcal{X})\right\|_{\mathbf{P}_l^{c_j}}^2\right)
+          \right\}$$
+        </div>
+        <table>
+          <thead><tr><th>项</th><th>来源</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td>$\|\mathbf{r}_p-\mathbf{H}_p\mathcal{X}\|^2$</td><td>边缘化产生的先验</td><td>保留被移出窗口的旧状态对当前变量的信息，避免窗口移动后约束丢失。</td></tr>
+            <tr><td>$\mathbf{r}_B$</td><td>IMU 预积分</td><td>连接相邻图像帧时刻的 IMU 状态，约束位置、速度、姿态和 bias 连续性。</td></tr>
+            <tr><td>$\mathbf{r}_C$</td><td>多帧特征观测</td><td>约束相机位姿、外参和特征逆深度，使同一 3D 特征投影回各帧观测方向。</td></tr>
+            <tr><td>$\rho(\cdot)$</td><td>Huber 鲁棒核</td><td>小残差按二次惩罚，大残差近似线性惩罚，减轻视觉外点影响。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="residuals">
+        <h2>8. 残差构造</h2>
+        <h3>8.1 IMU 残差：预测的相对运动要等于预积分测量</h3>
+        <p>对窗口中相邻的 $b_k,b_{k+1}$，由当前待优化状态可以预测它们之间在 $b_k$ 坐标系下的相对位移、速度增量和相对旋转。把这个预测值减去预积分测量，就得到 IMU 残差。</p>
+        <div class="formula">
+          $$\mathbf{r}_B=
+          \begin{bmatrix}
+          \delta\boldsymbol{\alpha}_{b_{k+1}}^{b_k}\\
+          \delta\boldsymbol{\beta}_{b_{k+1}}^{b_k}\\
+          \delta\boldsymbol{\theta}_{b_{k+1}}^{b_k}\\
+          \delta\mathbf{b}_a\\
+          \delta\mathbf{b}_g
+          \end{bmatrix}$$
+          $$\delta\boldsymbol{\alpha}=
+          \mathbf{R}_w^{b_k}\left(\mathbf{p}_{b_{k+1}}^w-\mathbf{p}_{b_k}^w+\frac{1}{2}\mathbf{g}^w\Delta t_k^2-\mathbf{v}_{b_k}^w\Delta t_k\right)-\hat{\boldsymbol{\alpha}}_{b_{k+1}}^{b_k}$$
+          $$\delta\boldsymbol{\beta}=
+          \mathbf{R}_w^{b_k}\left(\mathbf{v}_{b_{k+1}}^w+\mathbf{g}^w\Delta t_k-\mathbf{v}_{b_k}^w\right)-\hat{\boldsymbol{\beta}}_{b_{k+1}}^{b_k}$$
+          $$\delta\boldsymbol{\theta}=2\left[\left(\mathbf{q}_{b_k}^{w^{-1}}\otimes\mathbf{q}_{b_{k+1}}^w\otimes
+          (\hat{\boldsymbol{\gamma}}_{b_{k+1}}^{b_k})^{-1}\right)_{xyz}\right]$$
+        </div>
+        <p>最后两项 $\delta\mathbf{b}_a=\mathbf{b}_{a_{k+1}}-\mathbf{b}_{a_k}$、$\delta\mathbf{b}_g=\mathbf{b}_{g_{k+1}}-\mathbf{b}_{g_k}$ 来自 bias 随机游走模型，约束相邻帧 bias 不应无根据地剧烈变化。</p>
+        <h3>8.2 视觉残差：单位球面上的方向误差</h3>
+        <p>传统 pinhole 模型常把重投影误差定义在像素平面。VINS-Mono 为兼容广角、鱼眼和全向相机，把像素反投影成单位球面上的观测射线，并在观测射线的切平面上定义二维误差。</p>
+        <div class="formula">
+          $$\mathbf{r}_C(\hat{\mathbf{z}}_l^{c_j},\mathcal{X})=
+          \begin{bmatrix}\mathbf{b}_1&\mathbf{b}_2\end{bmatrix}^{T}
+          \left(\hat{\mathbf{P}}_l^{c_j}-\frac{\mathbf{P}_l^{c_j}}{\|\mathbf{P}_l^{c_j}\|}\right)$$
+        </div>
+        <p>其中 $\hat{\mathbf{P}}_l^{c_j}$ 是第 $j$ 帧中观测到的单位方向，$\mathbf{P}_l^{c_j}$ 是根据当前状态、外参和逆深度从首观测帧投到第 $j$ 帧后得到的预测方向。$\mathbf{b}_1,\mathbf{b}_2$ 是观测射线切平面的两个正交基，因此残差是 2 维而不是 3 维。</p>
+        <div class="svg-wrap">
+          <svg viewBox="0 0 820 300" role="img" aria-label="unit sphere visual residual">
+            <rect x="20" y="20" width="780" height="260" rx="8" fill="#fbfcfa" stroke="#d7ddd6"></rect>
+            <circle cx="240" cy="150" r="92" fill="#eef6f1" stroke="#1f6f55" stroke-width="3"></circle>
+            <line x1="240" y1="150" x2="332" y2="120" stroke="#205b8f" stroke-width="4"></line>
+            <line x1="240" y1="150" x2="315" y2="180" stroke="#9b631c" stroke-width="4"></line>
+            <circle cx="332" cy="120" r="7" fill="#205b8f"></circle>
+            <circle cx="315" cy="180" r="7" fill="#9b631c"></circle>
+            <line x1="300" y1="105" x2="370" y2="135" stroke="#9b3530" stroke-width="2" stroke-dasharray="6 5"></line>
+            <line x1="300" y1="105" x2="272" y2="170" stroke="#9b3530" stroke-width="2" stroke-dasharray="6 5"></line>
+            <text x="240" y="265" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" fill="#38433e" text-anchor="middle">单位球面：观测射线与预测射线的方向差</text>
+            <text x="402" y="118" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" fill="#205b8f">观测方向</text>
+            <text x="392" y="186" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="15" fill="#9b631c">预测方向</text>
+            <text x="560" y="110" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="16" fill="#17201c">切平面二维残差</text>
+            <text x="560" y="142" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#38433e">3D 方向差被投影到观测射线</text>
+            <text x="560" y="166" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#38433e">的切平面上，因此视觉测量</text>
+            <text x="560" y="190" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-size="14" fill="#38433e">贡献两个自由度。</text>
+          </svg>
+        </div>
+        <h3>8.3 为什么视觉和 IMU 是互补的</h3>
+        <table>
+          <thead><tr><th>传感器</th><th>优势</th><th>弱点</th><th>紧耦合后如何互补</th></tr></thead>
+          <tbody>
+            <tr><td>单目视觉</td><td>长期几何约束强，能通过多视图约束相对位姿和结构</td><td>尺度不可观，快速运动和弱纹理会丢跟踪</td><td>IMU 提供尺度、重力和短时运动预测，帮助视觉跨越模糊或短时缺失。</td></tr>
+            <tr><td>低成本 IMU</td><td>高频、低延迟、短时运动连续性好</td><td>积分漂移快，bias 与噪声明显</td><td>视觉多帧几何约束不断校正 IMU 漂移和 bias。</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="marginalization">
+        <h2>9. 边缘化</h2>
+        <p>非线性优化如果保留所有历史帧，计算量会随时间无界增长。VINS-Mono 维护固定大小滑动窗口，旧状态或非关键帧被移出，但它们对当前状态的信息不能简单丢掉，因此需要边缘化。</p>
+        <div class="mini-graph">
+          <div class="node old">旧关键帧</div>
+          <div class="edge"></div>
+          <div class="node">窗口帧</div>
+          <div class="edge"></div>
+          <div class="node latest">最新帧</div>
+          <div class="node old">先验</div>
+        </div>
+        <h3>9.1 两种移窗策略</h3>
+        <ul>
+          <li>如果倒数第二帧是关键帧，则保留它，并边缘化最老帧以及相关视觉、惯性测量；这些信息通过 Schur complement 转成新的先验。</li>
+          <li>如果倒数第二帧不是关键帧，则直接丢弃该非关键帧的视觉测量，但继续保留并合并 IMU 预积分约束，以维持系统稀疏结构。</li>
+        </ul>
+        <h3>9.2 Schur complement 的直观解释</h3>
+        <p>把待边缘化变量记为 $\mathbf{x}_m$，保留变量记为 $\mathbf{x}_r$。线性化后的正规方程可分块写成：</p>
+        <div class="formula">
+          $$\begin{bmatrix}\mathbf{H}_{mm}&\mathbf{H}_{mr}\\
+          \mathbf{H}_{rm}&\mathbf{H}_{rr}\end{bmatrix}
+          \begin{bmatrix}\delta\mathbf{x}_m\\\delta\mathbf{x}_r\end{bmatrix}=
+          \begin{bmatrix}\mathbf{b}_m\\\mathbf{b}_r\end{bmatrix}$$
+        </div>
+        <p>消去 $\delta\mathbf{x}_m$ 后，保留变量得到新的信息矩阵和右端项：</p>
+        <div class="formula">
+          $$\mathbf{H}'=\mathbf{H}_{rr}-\mathbf{H}_{rm}\mathbf{H}_{mm}^{-1}\mathbf{H}_{mr},\quad
+          \mathbf{b}'=\mathbf{b}_{r}-\mathbf{H}_{rm}\mathbf{H}_{mm}^{-1}\mathbf{b}_m$$
+        </div>
+        <p>这就是先验项 $\mathbf{r}_p,\mathbf{H}_p$ 的来源。它保留了旧状态对新状态的约束，但也固定了边缘化时的线性化点，因此会带来一定近似误差。论文认为 VIO 允许小范围漂移，这个代价可接受。</p>
+      </section>
+
+      <section id="solve">
+        <h2>10. 求解流程</h2>
+        <p>VINS-Mono 使用 Ceres Solver 求解上述非线性最小二乘问题。每个优化迭代都在当前估计处线性化 IMU 因子、视觉因子和先验因子，然后通过增量更新状态。</p>
+        <pre><code>输入：图像帧 I_k、两帧之间的 IMU 样本、当前滑窗状态
+1. 视觉前端跟踪特征，判断是否产生关键帧
+2. 对上一图像帧到当前图像帧之间的 IMU 做预积分
+3. 若尚未初始化：执行视觉 SfM + 视觉惯性对齐
+4. 若已初始化：把新状态、IMU 因子、视觉因子加入滑窗
+5. 构造目标函数：先验 + IMU 预积分残差 + 单位球面视觉残差
+6. Ceres 迭代求解，更新位姿、速度、bias、外参和逆深度
+7. 按关键帧策略边缘化旧变量，生成新的先验
+8. 输出相机频率位姿；必要时用最新 IMU 做前向传播输出 IMU 频率位姿</code></pre>
+        <h3>10.1 位姿优化到底优化了什么</h3>
+        <p>从优化器视角看，位姿不是孤立变量，而是同时被三类约束拉扯：上一帧和下一帧的 IMU 运动模型、所有能看到同一特征的相机射线、边缘化先验中的历史信息。某个姿态或位置更新后，会同时改变 IMU 残差和多个视觉残差，优化器寻找的是全窗口最一致的解。</p>
+        <h3>10.2 外参和 bias 的在线估计</h3>
+        <p>论文强调 VINS-Mono 的滑窗 VIO 同时进行相机-IMU 外参标定和 IMU bias 校正。外参出现在视觉残差的坐标变换链中，bias 出现在 IMU 预积分修正和 IMU 残差中，因此只要运动激励足够，优化器可以逐渐修正它们。</p>
+      </section>
+
+      <section id="relocalization">
+        <h2>11. 重定位与 4-DoF 位姿图</h2>
+        <p>滑窗 VIO 保证局部实时性，但长期运行仍会漂移。VINS-Mono 使用 DBoW2 做回环检测，通过 BRIEF 描述子匹配建立当前窗口和历史关键帧之间的特征对应，并把这些对应作为额外视觉残差加入滑窗优化。</p>
+        <h3>11.1 紧耦合重定位</h3>
+        <p>重定位不是简单地对当前帧做一次 PnP 后跳变修正，而是把回环帧位姿作为常量，把检索到的历史特征观测加入当前滑窗优化目标：</p>
+        <div class="formula">
+          $$\min_{\mathcal{X}}\left\{\text{prior}+\text{IMU factors}+\text{local visual factors}+
+          \sum_{(l,v)\in\mathcal{L}}\rho\left(\left\|\mathbf{r}_C(\hat{\mathbf{z}}_l^v,\mathcal{X},
+          \hat{\mathbf{q}}_v^w,\hat{\mathbf{p}}_v^w)\right\|^2\right)\right\}$$
+        </div>
+        <p>这里 $v$ 是回环关键帧，它的位姿来自位姿图或过去 odometry 输出，并在当前滑窗优化中保持常量。由于仍然是特征级约束，重定位可以利用多特征、多历史帧约束，通常比单帧 PnP 更平滑。</p>
+        <h3>11.2 4-DoF 位姿图优化</h3>
+        <p>IMU 使 roll 和 pitch 可观，长期主要漂移在三维位置和 yaw 上。因此论文只优化 4 个自由度：$x,y,z,\psi$。关键帧从滑窗边缘化出去后加入位姿图，边包含两类：顺序边来自 VIO 相邻或近邻关键帧相对位姿，回环边来自重定位结果。</p>
+        <div class="formula">
+          $$\min_{\mathbf{p},\psi}\left\{
+          \sum_{(i,j)\in\mathcal{S}}\|\mathbf{r}_{i,j}\|^2+
+          \sum_{(i,j)\in\mathcal{L}}\rho(\|\mathbf{r}_{i,j}\|^2)
+          \right\}$$
+        </div>
+        <p>顺序边不使用鲁棒核，因为它们来自已经带有外点处理的 VIO；回环边使用 Huber 核，以降低错误回环的影响。位姿图优化与重定位在独立线程异步运行，重定位总是使用当前可用的最新位姿图结果。</p>
+      </section>
+
+      <section id="observability">
+        <h2>12. 可观性与工程要点</h2>
+        <div class="grid two">
+          <div class="card">
+            <h3>尺度为什么可观</h3>
+            <p>单目视觉只有相似变换尺度不确定；IMU 加速度和重力以真实物理单位出现。只要有足够加速度激励，视觉的无尺度运动可以与 IMU 预积分对齐，从而恢复 metric scale。</p>
+          </div>
+          <div class="card">
+            <h3>重力为什么重要</h3>
+            <p>重力让 roll 和 pitch 变得可观，也让长期位姿图只需要处理位置和 yaw 漂移。初始化和优化中的重力方向错误会直接影响尺度、速度和姿态。</p>
+          </div>
+          <div class="card">
+            <h3>纯旋转为什么危险</h3>
+            <p>纯旋转能提供旋转约束，却无法稳定三角化特征深度，也不利于尺度恢复。VINS-Mono 在关键帧选择中用陀螺仪补偿旋转后计算视差，就是为了避免把纯旋转误当作有效平移视差。</p>
+          </div>
+          <div class="card">
+            <h3>边缘化为什么有副作用</h3>
+            <p>边缘化把旧变量消去并形成先验，但先验依赖当时的线性化点。后续状态变化后，旧先验不能完全重新线性化，因此会引入近似误差。</p>
+          </div>
+        </div>
+        <h3>常见失败检测</h3>
+        <ul class="checklist">
+          <li>最新帧可跟踪特征数量低于阈值，说明视觉约束可能不足。</li>
+          <li>相邻两次估计输出的位置或旋转出现大跳变，说明优化可能发散或误匹配严重。</li>
+          <li>bias 或外参估计发生异常大变化，说明系统可能处在不可观或错误约束状态。</li>
+        </ul>
+      </section>
+
+      <section id="summary">
+        <h2>13. 总结速查</h2>
+        <table>
+          <thead><tr><th>问题</th><th>VINS-Mono 的回答</th></tr></thead>
+          <tbody>
+            <tr><td>单目没有尺度怎么办？</td><td>先做视觉 SfM，再用 IMU 预积分对齐恢复尺度、速度和重力，之后在紧耦合优化中继续修正。</td></tr>
+            <tr><td>IMU 高频数据如何进入优化？</td><td>两帧图像之间做预积分，形成 $\alpha,\beta,\gamma$ 相对运动因子，并传播协方差与 bias 雅可比。</td></tr>
+            <tr><td>位姿优化的目标是什么？</td><td>最小化滑窗内先验、IMU 预积分残差和视觉单位球面重投影残差的加权和。</td></tr>
+            <tr><td>为什么叫紧耦合？</td><td>相机特征观测和 IMU 测量在同一个非线性优化问题中联合约束同一批状态，而不是先各自估计再融合。</td></tr>
+            <tr><td>长期漂移如何处理？</td><td>回环检测后做特征级紧耦合重定位，并把关键帧加入只优化 $x,y,z,yaw$ 的 4-DoF 位姿图。</td></tr>
+          </tbody>
+        </table>
+        <p class="footer">参考论文：Tong Qin, Peiliang Li, Shaojie Shen, “VINS-Mono: A Robust and Versatile Monocular Visual-Inertial State Estimator”, arXiv:1708.03852。本文为基于论文内容的中文技术讲解，重点围绕紧耦合非线性优化状态估计与位姿优化展开。</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
